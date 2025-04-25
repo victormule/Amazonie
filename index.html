@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Quai Branly – Memória & Alma</title>
+    <style>
+      :root {
+        --bg: #111;
+        --text: #f5f5f5;
+        --accent: #f59e0b;
+        --border: #444;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 2rem 1rem;
+        font-family: system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+      h1 {
+        margin: 0 0 3rem;
+        font-size: 2.5rem;
+        letter-spacing: 0.05em;
+        text-align: center;
+      }
+      .artefact {
+        display: flex;
+        align-items: flex-start;
+        gap: 1.5rem;
+        margin-bottom: 3rem;
+      }
+      .artefact img {
+        width: 45%;
+        height: auto;
+        object-fit: contain;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+      }
+      .panel {
+        flex: 1;
+        border: 1px solid var(--border);
+        padding: 1rem;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        max-height: 600px;
+      }
+      .panel-upper {
+        flex: 1 1 auto;
+        overflow-y: auto;
+        margin-bottom: 1rem;
+        padding-right: 0.5rem;
+      }
+      .note {
+        background: rgba(255, 255, 255, 0.05);
+        padding: 0.5rem 0.75rem;
+        margin: 0 0 0.5rem;
+        border-radius: 4px;
+        font-size: 0.9rem;
+      }
+      .panel-lower {
+        border-top: 1px solid var(--border);
+        padding-top: 1rem;
+      }
+      textarea,
+      input[type="text"] {
+        width: 100%;
+        background: #222;
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 0.5rem;
+        margin-bottom: 0.5rem;
+      }
+      textarea {
+        min-height: 60px;
+        resize: vertical;
+      }
+      button {
+        background: var(--accent);
+        border: none;
+        color: #000;
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      button:hover {
+        filter: brightness(1.1);
+      }
+      .preview {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+      }
+      .preview button {
+        padding: 0 0.4rem;
+      }
+      @media (max-width: 768px) {
+        .artefact {
+          flex-direction: column;
+        }
+        .artefact img {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Quai Branly – <span style="color:var(--accent)">Memória & Alma</span></h1>
+
+    <div id="gallery"></div>
+
+    <script>
+      const images = [
+        { src: "assets/image1.png", alt: "Peitoral de penas e contas" },
+        { src: "assets/image2.png", alt: "Cinto trançado com penas" },
+        { src: "assets/image3.png", alt: "Coroa cerimonial" },
+        { src: "assets/image4.png", alt: "Cesto ritual" },
+        { src: "assets/image5.png", alt: "Pente frontal" },
+        { src: "assets/image6.png", alt: "Brincos de penas" },
+      ];
+
+      const gallery = document.getElementById("gallery");
+
+      images.forEach(({ src, alt }) => {
+        const row = document.createElement("div");
+        row.className = "artefact";
+
+        const img = document.createElement("img");
+        img.src = src;
+        img.alt = alt;
+        row.appendChild(img);
+
+        const panel = document.createElement("div");
+        panel.className = "panel";
+
+        const upper = document.createElement("div");
+        upper.className = "panel-upper";
+        upper.innerHTML = '<p class="note">Nenhum comentário por enquanto…</p>';
+        panel.appendChild(upper);
+
+        const lower = document.createElement("div");
+        lower.className = "panel-lower";
+        lower.innerHTML = `
+          <input type="text" placeholder="Seu nome (opcional)" />
+          <textarea placeholder="Adicionar um comentário…"></textarea>
+          <button data-publish>Publicar</button>
+          <button style="margin-left:0.5rem" data-audio>🎙️ Gravar</button>
+          <div class="preview" data-preview></div>
+        `;
+        panel.appendChild(lower);
+
+        row.appendChild(panel);
+        gallery.appendChild(row);
+
+        const nameInput   = lower.querySelector('input');
+        const textarea    = lower.querySelector('textarea');
+        const publishBtn  = lower.querySelector('[data-publish]');
+        const audioBtn    = lower.querySelector('[data-audio]');
+        const previewZone = lower.querySelector('[data-preview]');
+
+        let tempAudioUrl = null;
+        let recorder     = null;
+        let chunks       = [];
+
+        function resetPreview() {
+          if (tempAudioUrl) {
+            URL.revokeObjectURL(tempAudioUrl);
+            tempAudioUrl = null;
+          }
+          previewZone.innerHTML = '';
+        }
+
+        publishBtn.addEventListener('click', () => {
+          const textVal = textarea.value.trim();
+          if (!textVal && !tempAudioUrl) return;
+
+          const name = nameInput.value.trim() || 'Anônimo';
+          const date = new Date().toLocaleString('pt-BR');
+
+          if (upper.firstElementChild && upper.firstElementChild.classList.contains('note') && upper.firstElementChild.textContent.startsWith('Nenhum')) {
+            upper.innerHTML = '';
+          }
+
+          const container = document.createElement('div');
+          container.className = 'note';
+          container.innerHTML = `<strong>${name}</strong> – <em>${date}</em><br>`;
+
+          if (textVal) {
+            const pText = document.createElement('p');
+            pText.style.margin = '0 0 0.5rem';
+            pText.textContent = textVal;
+            container.appendChild(pText);
+          }
+
+          if (tempAudioUrl) {
+            const audio = document.createElement('audio');
+            audio.controls = true;
+            audio.src = tempAudioUrl;
+            container.appendChild(audio);
+          }
+
+          upper.appendChild(container);
+
+          textarea.value = '';
+          nameInput.value = '';
+          resetPreview();
+        });
+
+        audioBtn.addEventListener('click', async () => {
+          if (!recorder || recorder.state === 'inactive') {
+            try {
+              const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+              recorder = new MediaRecorder(stream);
+              chunks = [];
+              recorder.ondataavailable = e => chunks.push(e.data);
+              recorder.onstop = () => {
+                tempAudioUrl = URL.createObjectURL(new Blob(chunks, { type: 'audio/webm' }));
+                renderPreview();
+                audioBtn.textContent = '🎙️ Gravar';
+              };
+              recorder.start();
+              audioBtn.textContent = '⏹️ Parar';
+            } catch(err) {
+              alert('Não foi possível acessar o microfone');
+            }
+          } else if (recorder.state === 'recording') {
+            recorder.stop();
+          }
+        });
+
+        function renderPreview() {
+          previewZone.innerHTML = '';
+          if (!tempAudioUrl) return;
+          const audio = document.createElement('audio');
+          audio.controls = true;
+          audio.src = tempAudioUrl;
+          const del = document.createElement('button');
+          del.textContent = '🗑️';
+          del.title = 'Excluir a gravação';
+          del.addEventListener('click', resetPreview);
+          previewZone.appendChild(audio);
+          previewZone.appendChild(del);
+        }
+      });
+    </script>
+  </body>
+</html>
