@@ -42,22 +42,37 @@
       .load-more-comments { display: block; width: 100%; margin-top: 1rem; background: rgba(255,255,255,.1); color: var(--text); }
       .play-audio { background: rgba(255,255,255,.1); color: var(--text); padding: .3rem .5rem; font-size: .8rem; }
       #loading-indicator { text-align: center; padding: 1rem; color: var(--accent); display: none; }
-      @media (max-width:768px){ .artefact{flex-direction:column;} .artefact img{width:100%;} }
-    
+      
       .privacy-link {
-  text-align: center;
-  margin-bottom: 1rem;
-}
-.privacy-link a {
-  color: var(--text);
-  text-decoration: none;
-  border-bottom: 1px dotted var(--border);
-  font-size: 0.9rem;
-}
-.privacy-link a:hover {
-  color: var(--accent);
-  border-color: var(--accent);
-}
+        text-align: center;
+        margin-bottom: 1rem;
+      }
+      .privacy-link a {
+        color: var(--text);
+        text-decoration: none;
+        border-bottom: 1px dotted var(--border);
+        font-size: 0.9rem;
+      }
+      .privacy-link a:hover {
+        color: var(--accent);
+        border-color: var(--accent);
+      }
+      
+      .delete-btn {
+        background: transparent;
+        color: #ff4d4d;
+        border: 1px solid #ff4d4d;
+        font-size: 0.8rem;
+        padding: 0.25rem 0.5rem;
+        margin-top: 0.5rem;
+        cursor: pointer;
+        border-radius: 3px;
+      }
+      .delete-btn:hover {
+        background: rgba(255, 77, 77, 0.1);
+      }
+      
+      @media (max-width:768px){ .artefact{flex-direction:column;} .artefact img{width:100%;} }
     </style>
   </head>
   <body>
@@ -99,8 +114,48 @@
         fr.onload = () => r(fr.result.split(',')[1]);
         fr.readAsDataURL(blob);
       });
+      
+      function generateSecretKey() {
+        return Array.from(crypto.getRandomValues(new Uint8Array(16)))
+          .map(b => b.toString(16).padStart(2, "0"))
+          .join("");
+      }
+      
+      async function deleteMessage(messageId, secretKey, artefactId, upperPanel, loadMoreBtn) {
+        if (!confirm('Tem certeza que deseja excluir este comentário?')) return;
+        
+        try {
+          const res = await fetch('/.netlify/functions/delete-message', {
+            method: 'POST',
+            body: JSON.stringify({ id: messageId, secretKey: secretKey })
+          });
+          
+          const result = await res.text();
+          if (result === 'ok') {
+            // Suppression réussie, mettre à jour localStorage
+            const userMessages = JSON.parse(localStorage.getItem('userMessages') || '{}');
+            delete userMessages[messageId];
+            localStorage.setItem('userMessages', JSON.stringify(userMessages));
+            
+            // Vider le cache pour cet artefact
+            Object.keys(messageCache).forEach(key => {
+              if (key.startsWith(artefactId)) delete messageCache[key];
+            });
+            
+            // Recharger les messages
+            const currentPage = 0;
+            loadMessages(artefactId, upperPanel).then(hasMore => {
+              if (loadMoreBtn) loadMoreBtn.style.display = hasMore ? 'block' : 'none';
+            });
+          } else {
+            alert('Erro ao excluir: chave inválida ou mensagem não encontrada');
+          }
+        } catch (err) {
+          alert('Erro ao excluir: ' + err.message);
+        }
+      }
 
-      function renderMessages(messages, container, clearContainer = true) {
+      function renderMessages(messages, container, artefactId, loadMoreBtn, clearContainer = true) {
         if (clearContainer) container.innerHTML = '';
         
         if (!messages.length && clearContainer) {
@@ -108,13 +163,18 @@
           return;
         }
         
+        // Récupérer les clés stockées dans localStorage
+        const userMessages = JSON.parse(localStorage.getItem('userMessages') || '{}');
+        
         messages.forEach(m => {
           const div = document.createElement('div');
           div.className = 'note';
           div.innerHTML = `<strong>${m.author}</strong> – <em>${new Date(m.created_at).toLocaleString('pt-BR')}</em><br>`;
+          
           if (m.comment) {
             div.innerHTML += `<p style="margin:0 0 .5rem">${m.comment}</p>`;
           }
+          
           if (m.audio_path) {
             const audioContainer = document.createElement('div');
             audioContainer.className = 'audio-lazy';
@@ -131,6 +191,16 @@
             
             div.appendChild(audioContainer);
           }
+          
+          // Vérifier si ce message appartient à l'utilisateur actuel
+          if (userMessages[m.id]) {
+            const deleteBtn = document.createElement('button');
+            deleteBtn.innerHTML = '🗑️ Excluir';
+            deleteBtn.className = 'delete-btn';
+            deleteBtn.onclick = () => deleteMessage(m.id, userMessages[m.id], artefactId, container, loadMoreBtn);
+            div.appendChild(deleteBtn);
+          }
+          
           container.appendChild(div);
         });
       }
@@ -139,7 +209,7 @@
         const cacheKey = `${artefactId}-${page}`;
         
         if (messageCache[cacheKey]) {
-          renderMessages(messageCache[cacheKey], upper, page === 0);
+          renderMessages(messageCache[cacheKey], upper, artefactId, null, page === 0);
           return messageCache[cacheKey].length === limit;
         }
         
@@ -147,7 +217,7 @@
         const data = await res.json();
         
         messageCache[cacheKey] = data; // Sauvegarder dans le cache
-        renderMessages(data, upper, page === 0);
+        renderMessages(data, upper, artefactId, null, page === 0);
         
         return data.length === limit;
       }
@@ -248,16 +318,30 @@
           const comment = textarea.value.trim();
           if (!comment && !tempBlob) return;
           publishBtn.disabled=true;
+          
+          // Générer une clé secrète
+          const secretKey = generateSecretKey();
+          
           const payload = {
             artefact_id: artefactId,
-            author     : nameInput.value.trim() || 'Anônimo',
+            author: nameInput.value.trim() || 'Anônimo',
             comment,
-            audioBase64: tempBlob ? await blobToBase64(tempBlob) : null
+            audioBase64: tempBlob ? await blobToBase64(tempBlob) : null,
+            secretKey: secretKey
           };
+          
           const res = await fetch('/.netlify/functions/add-message', {
             method:'POST', body: JSON.stringify(payload)
           });
-          if((await res.text())==='ok'){
+          
+          const response = await res.json();
+          
+          if(response.success){
+            // Stocker la clé secrète dans localStorage
+            const userMessages = JSON.parse(localStorage.getItem('userMessages') || '{}');
+            userMessages[response.id] = secretKey;
+            localStorage.setItem('userMessages', JSON.stringify(userMessages));
+            
             textarea.value=''; nameInput.value=''; resetPreview();
             
             // Vider le cache pour cet artefact
@@ -269,7 +353,9 @@
             loadMessages(artefactId, upper).then(hasMore => {
               loadMoreBtn.style.display = hasMore ? 'block' : 'none';
             });
-          }else{ alert('Erro ao publicar'); }
+          } else { 
+            alert('Erro ao publicar'); 
+          }
           publishBtn.disabled=false;
         });
       }
