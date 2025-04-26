@@ -135,68 +135,7 @@
         }
 
         /* === LOAD EXISTING === */
-/* === PAGINATION + INFINITE SCROLL === */
-let page       = 1          // page courante
-const limit    = 20;        // 20 messages par requête
-let loading    = false;
-let finished   = false;
-
-// rend un message (reprend ta fonction existante)
-function renderNote(msg, container) {
-  const div = document.createElement('div');
-  div.className = 'note';
-  div.innerHTML =
-    `<strong>${msg.author}</strong> – <em>${new Date(msg.created_at).toLocaleString('pt-BR')}</em><br>`;
-  if (msg.comment) {
-    div.innerHTML += `<p style="margin:0 0 .5rem">${msg.comment}</p>`;
-  }
-  if (msg.audio_path) {
-    const audio = document.createElement('audio');
-    audio.controls = true;
-    audio.src = `${SUPABASE_URL}/storage/v1/object/public/recordings/${msg.audio_path}`;
-    div.appendChild(audio);
-  }
-  container.appendChild(div);
-}
-
-async function loadNext() {
-  if (loading || finished) return;
-  loading = true;
-
-  const res  = await fetch(
-    `/.netlify/functions/get-messages?artefact=${encodeURIComponent(artefactId)}&page=${page}&limit=${limit}`
-  );
-  const data = await res.json();
-
-  if (!data.length) {
-    finished = true;   // plus de messages
-    if (!upper.childElementCount) {
-      upper.innerHTML = '<p class="note">Nenhum comentário por enquanto…</p>';
-    }
-  } else {
-    if (upper.firstElementChild && upper.firstElementChild.textContent.startsWith('Nenhum')) {
-      upper.innerHTML = '';        // retire le placeholder
-    }
-    data.forEach(m => renderNote(m, upper));
-    page += 1;
-  }
-  loading = false;
-}
-
-/* 1. Crée un sentinel en bas du panneau pour détecter le scroll */
-const sentinel = document.createElement('div');
-sentinel.style.height = '1px';
-upper.appendChild(sentinel);
-
-/* 2. Observe le sentinel */
-const io = new IntersectionObserver(entries => {
-  if (entries[0].isIntersecting) loadNext();
-});
-io.observe(sentinel);
-
-/* 3. Charge la première page tout de suite */
-loadNext();
-
+        loadMessages(artefactId, upper);
 
         /* === RECORD === */
         audioBtn.addEventListener('click', async () => {
@@ -229,6 +168,10 @@ loadNext();
           const res = await fetch('/.netlify/functions/add-message', {
             method:'POST', body: JSON.stringify(payload)
           });
+          if((await res.text())==='ok'){
+            textarea.value=''; nameInput.value=''; resetPreview();
+            loadMessages(artefactId, upper);
+          }else{ alert('Erro ao publicar'); }
           publishBtn.disabled=false;
         });
       });
