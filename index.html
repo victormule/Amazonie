@@ -39,6 +39,9 @@
       button:hover { filter:brightness(1.1); }
       .preview { display:flex; align-items:center; gap:.5rem; margin-top:.5rem; }
       .preview button { padding:0 .4rem; }
+      .load-more-btn { display: block; margin: 2rem auto; }
+      .load-more-comments { display: block; width: 100%; margin-top: 1rem; background: rgba(255,255,255,.1); color: var(--text); }
+      .play-audio { background: rgba(255,255,255,.1); color: var(--text); padding: .3rem .5rem; font-size: .8rem; }
       @media (max-width:768px){ .artefact{flex-direction:column;} .artefact img{width:100%;} }
     </style>
   </head>
@@ -49,7 +52,7 @@
     <script>
       /* ===== CONFIG ===== */
       // Remplace pelo URL do seu projeto Supabase (sem barra final)
-       const SUPABASE_URL = "https://ynnrudehlmwtnimrukhm.supabase.co";
+      const SUPABASE_URL = "https://ynnrudehlmwtnimrukhm.supabase.co";
 
       const images = [
         { src: "assets/image1.png", alt: "Peitoral de penas e contas" },
@@ -61,6 +64,7 @@
       ];
 
       const gallery = document.getElementById('gallery');
+      const messageCache = {}; // Cache pour les messages
 
       /* === helpers === */
       const blobToBase64 = blob => new Promise(r => {
@@ -69,15 +73,26 @@
         fr.readAsDataURL(blob);
       });
 
-      async function loadMessages(artefactId, upper) {
-        const res = await fetch(`/.netlify/functions/get-messages?artefact=${encodeURIComponent(artefactId)}`);
-        const data = await res.json();
-        upper.innerHTML = '';
-        if (!data.length) {
-          upper.innerHTML = '<p class="note">Nenhum comentário por enquanto…</p>';
+      // Observer pour le lazy loading des images
+      const imgObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            const img = entry.target;
+            img.src = img.dataset.src;
+            imgObserver.unobserve(img);
+          }
+        });
+      });
+
+      function renderMessages(messages, container, clearContainer = true) {
+        if (clearContainer) container.innerHTML = '';
+        
+        if (!messages.length && clearContainer) {
+          container.innerHTML = '<p class="note">Nenhum comentário por enquanto…</p>';
           return;
         }
-        data.forEach(m => {
+        
+        messages.forEach(m => {
           const div = document.createElement('div');
           div.className = 'note';
           div.innerHTML = `<strong>${m.author}</strong> – <em>${new Date(m.created_at).toLocaleString('pt-BR')}</em><br>`;
@@ -85,32 +100,84 @@
             div.innerHTML += `<p style="margin:0 0 .5rem">${m.comment}</p>`;
           }
           if (m.audio_path) {
-            const audio = document.createElement('audio');
-            audio.controls = true;
-            audio.src = `${SUPABASE_URL}/storage/v1/object/public/recordings/${m.audio_path}`;
-            div.appendChild(audio);
+            const audioContainer = document.createElement('div');
+            audioContainer.className = 'audio-lazy';
+            audioContainer.innerHTML = `<button class="play-audio">▶️ Ouvir áudio</button>`;
+            audioContainer.dataset.src = `${SUPABASE_URL}/storage/v1/object/public/recordings/${m.audio_path}`;
+            
+            audioContainer.querySelector('button').addEventListener('click', function() {
+              const audio = document.createElement('audio');
+              audio.controls = true;
+              audio.src = audioContainer.dataset.src;
+              this.replaceWith(audio);
+              audio.play();
+            });
+            
+            div.appendChild(audioContainer);
           }
-          upper.appendChild(div);
+          container.appendChild(div);
         });
       }
 
-      images.forEach(({ src, alt }) => {
+      async function loadMessages(artefactId, upper, page = 0, limit = 10) {
+        const cacheKey = `${artefactId}-${page}`;
+        
+        if (messageCache[cacheKey]) {
+          renderMessages(messageCache[cacheKey], upper, page === 0);
+          return messageCache[cacheKey].length === limit;
+        }
+        
+        const res = await fetch(`/.netlify/functions/get-messages?artefact=${encodeURIComponent(artefactId)}&page=${page}&limit=${limit}`);
+        const data = await res.json();
+        
+        messageCache[cacheKey] = data; // Sauvegarder dans le cache
+        renderMessages(data, upper, page === 0);
+        
+        return data.length === limit;
+      }
+
+      // Fonction pour rendre un artefact
+      function renderArtefact({ src, alt }) {
         const artefactId = src.split('/').pop(); // ex: image1.png
 
         /* --- structure DOM --- */
-        const row = document.createElement('div'); row.className = 'artefact';
-        const img = Object.assign(document.createElement('img'), { src, alt });
+        const row = document.createElement('div'); 
+        row.className = 'artefact';
+        
+        // Lazy loading de l'image
+        const img = Object.assign(document.createElement('img'), { 
+          alt, 
+          loading: 'lazy',
+          'data-src': src 
+        });
+        imgObserver.observe(img);
+        
         row.appendChild(img);
-        const panel = document.createElement('div'); panel.className='panel';
-        const upper = document.createElement('div'); upper.className='panel-upper'; panel.appendChild(upper);
-        const lower = document.createElement('div'); lower.className='panel-lower';
+        const panel = document.createElement('div'); 
+        panel.className='panel';
+        const upper = document.createElement('div'); 
+        upper.className='panel-upper'; 
+        panel.appendChild(upper);
+        
+        const lower = document.createElement('div'); 
+        lower.className='panel-lower';
         lower.innerHTML = `
           <input type="text" placeholder="Seu nome (opcional)" />
           <textarea placeholder="Adicionar um comentário…"></textarea>
           <button data-publish>Publicar</button>
           <button style="margin-left:.5rem" data-audio>🎙️ Gravar</button>
           <div class="preview" data-preview></div>`;
-        panel.appendChild(lower); row.appendChild(panel); gallery.appendChild(row);
+        
+        panel.appendChild(lower); 
+        row.appendChild(panel); 
+        gallery.appendChild(row);
+
+        // Bouton pour charger plus de commentaires
+        const loadMoreBtn = document.createElement('button');
+        loadMoreBtn.textContent = 'Carregar mais comentários';
+        loadMoreBtn.className = 'load-more-comments';
+        loadMoreBtn.style.display = 'none';
+        upper.after(loadMoreBtn);
 
         /* --- références --- */
         const nameInput = lower.querySelector('input');
@@ -122,6 +189,7 @@
         let tempBlob = null;
         let tempURL  = null;
         let recorder = null, chunks=[];
+        let currentPage = 0;
 
         function resetPreview(){
           if (tempURL){ URL.revokeObjectURL(tempURL); tempURL=null; }
@@ -135,7 +203,15 @@
         }
 
         /* === LOAD EXISTING === */
-        loadMessages(artefactId, upper);
+        loadMessages(artefactId, upper).then(hasMore => {
+          if (hasMore) loadMoreBtn.style.display = 'block';
+        });
+
+        loadMoreBtn.addEventListener('click', async () => {
+          currentPage++;
+          const hasMore = await loadMessages(artefactId, upper, currentPage);
+          if (!hasMore) loadMoreBtn.style.display = 'none';
+        });
 
         /* === RECORD === */
         audioBtn.addEventListener('click', async () => {
@@ -170,11 +246,49 @@
           });
           if((await res.text())==='ok'){
             textarea.value=''; nameInput.value=''; resetPreview();
-            loadMessages(artefactId, upper);
+            
+            // Vider le cache pour cet artefact
+            Object.keys(messageCache).forEach(key => {
+              if (key.startsWith(artefactId)) delete messageCache[key];
+            });
+            
+            currentPage = 0;
+            loadMessages(artefactId, upper).then(hasMore => {
+              loadMoreBtn.style.display = hasMore ? 'block' : 'none';
+            });
           }else{ alert('Erro ao publicar'); }
           publishBtn.disabled=false;
         });
-      });
+      }
+
+      // Charger les artefacts de manière progressive
+      const displayedImages = images.slice(0, 3);
+      let currentIndex = 3;
+
+      function loadMoreArtefacts() {
+        const nextImages = images.slice(currentIndex, currentIndex + 3);
+        currentIndex += 3;
+        
+        nextImages.forEach(renderArtefact);
+        
+        if (currentIndex >= images.length) {
+          loadMoreArtefactsBtn.style.display = 'none';
+        }
+      }
+
+      // Ajouter un bouton pour charger plus d'artefacts
+      const loadMoreArtefactsBtn = document.createElement('button');
+      loadMoreArtefactsBtn.textContent = 'Carregar mais artefatos';
+      loadMoreArtefactsBtn.className = 'load-more-btn';
+      loadMoreArtefactsBtn.addEventListener('click', loadMoreArtefacts);
+
+      // Rendre les 3 premiers artefacts
+      displayedImages.forEach(renderArtefact);
+      
+      // Ajouter le bouton si nécessaire
+      if (images.length > 3) {
+        gallery.after(loadMoreArtefactsBtn);
+      }
     </script>
   </body>
 </html>
