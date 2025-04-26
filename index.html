@@ -73,17 +73,6 @@
         fr.readAsDataURL(blob);
       });
 
-      // Observer pour le lazy loading des images
-      const imgObserver = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-          if (entry.isIntersecting) {
-            const img = entry.target;
-            img.src = img.dataset.src;
-            imgObserver.unobserve(img);
-          }
-        });
-      });
-
       function renderMessages(messages, container, clearContainer = true) {
         if (clearContainer) container.innerHTML = '';
         
@@ -144,13 +133,11 @@
         const row = document.createElement('div'); 
         row.className = 'artefact';
         
-        // Lazy loading de l'image
-        const img = Object.assign(document.createElement('img'), { 
-          alt, 
-          loading: 'lazy',
-          'data-src': src 
-        });
-        imgObserver.observe(img);
+        // Correction du lazy loading des images
+        const img = document.createElement('img');
+        img.alt = alt;
+        img.src = src; // Chargement direct de l'image pour résoudre l'erreur 404
+        img.loading = 'lazy'; // Utilisation de l'attribut loading natif pour le lazy loading
         
         row.appendChild(img);
         const panel = document.createElement('div'); 
