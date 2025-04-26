@@ -122,6 +122,11 @@
           .join("");
       }
       
+      function formatTime(sec) {
+  const m = Math.floor(sec / 60).toString().padStart(2,'0');
+  const s = (sec % 60).toString().padStart(2,'0');
+  return `${m}:${s}`;
+}
       async function deleteMessage(messageId, secretKey, artefactId, upperPanel, loadMoreBtn) {
         if (!confirm('Tem certeza que deseja excluir este comentário?')) return;
         
@@ -245,12 +250,13 @@
         
         const lower = document.createElement('div'); 
         lower.className='panel-lower';
-        lower.innerHTML = `
-          <input type="text" placeholder="Seu nome (opcional)" />
-          <textarea placeholder="Adicionar um comentário…"></textarea>
-          <button data-publish>Publicar</button>
-          <button style="margin-left:.5rem" data-audio>🎙️ Gravar</button>
-          <div class="preview" data-preview></div>`;
+lower.innerHTML = `
+  <input type="text" placeholder="Seu nome (opcional)" />
+  <textarea placeholder="Adicionar um comentário…"></textarea>
+  <button data-publish>Publicar</button>
+  <button style="margin-left:.5rem" data-audio>Gravar</button>
+  <span class="rec-time" style="margin-left:.5rem;font-size:.8rem;color:#ccc"></span>
+  <div class="preview" data-preview></div>`;
         
         panel.appendChild(lower); 
         row.appendChild(panel); 
@@ -270,6 +276,11 @@
         const audioBtn  = lower.querySelector('[data-audio]');
         const preview   = lower.querySelector('[data-preview]');
 
+        const timerSpan = lower.querySelector('.rec-time');
+
+        let startTime   = null;      // horodatage début
+        let timerId     = null;      // setInterval id
+        
         let tempBlob = null;
         let tempURL  = null;
         let recorder = null, chunks=[];
@@ -282,6 +293,14 @@
         function renderPreview(){
           preview.innerHTML=''; if(!tempURL) return;
           const audio=document.createElement('audio'); audio.controls=true; audio.src=tempURL;
+          audio.addEventListener('loadedmetadata', () => {
+  const dur = formatTime(Math.round(audio.duration));
+  const label = document.createElement('span');
+  label.textContent = ` ${dur}`;
+  label.style.fontSize = '.8rem';
+  label.style.color = '#aaa';
+  preview.appendChild(label);
+});
           const del=document.createElement('button'); del.textContent='🗑️'; del.title='Excluir a gravação';
           del.onclick=resetPreview; preview.append(audio,del);
         }
@@ -298,40 +317,76 @@
         });
 
         /* === RECORD === */
-        audioBtn.addEventListener('click', async () => {
-          if (!recorder || recorder.state==='inactive'){
-            try{
-              const stream = await navigator.mediaDevices.getUserMedia({audio:true});
-              recorder = new MediaRecorder(stream); chunks=[];
-              recorder.ondataavailable=e=>chunks.push(e.data);
-              recorder.onstop = () => {
-              tempBlob = new Blob(chunks, { type: 'audio/webm' });
+audioBtn.addEventListener('click', async () => {
 
-              if (tempBlob.size > MAX_AUDIO_BYTES) {
-              alert('O áudio é muito grande (máx. 5 MB). Grave novamente.');
-              resetPreview();                       // on efface l’aperçu
-              return;                               // on abandonne la piste
-            }
+  /* 1) Si l’enregistreur est inactif → on démarre */
+  if (!recorder || recorder.state === 'inactive') {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-            tempURL = URL.createObjectURL(tempBlob);
-            renderPreview();
-            audioBtn.textContent = 'Gravar';
-            };
-              recorder.start(); audioBtn.textContent='⏹️ Parar';
-            }catch(err){ alert('Não foi possível acessar o microfone'); }
-          }else if(recorder.state==='recording'){ recorder.stop(); }
-        });
+      recorder = new MediaRecorder(stream);
+      chunks   = [];
+
+      /* ---------- CHRONOMÈTRE : initialise ---------- */
+      startTime       = Date.now();             // mémorise l’instant de départ
+      timerSpan.textContent = '00:00';          // affiche 0:00
+      timerId = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        timerSpan.textContent = formatTime(elapsed);
+        /* option : stop auto après 300 s
+           if (elapsed >= 300) recorder.stop(); */
+      }, 1000);
+      /* ---------------------------------------------- */
+
+      recorder.ondataavailable = e => chunks.push(e.data);
+
+      recorder.onstop = () => {
+        /* –– stop chrono –– */
+        clearInterval(timerId);
+        timerId    = null;
+        startTime  = null;
+        timerSpan.textContent = '';             // efface l’affichage
+
+        /* –– génère l’aperçu –– */
+        tempBlob = new Blob(chunks, { type: 'audio/webm' });
+
+        /* ici on vérifie la taille max 5 Mo */
+        if (tempBlob.size > MAX_AUDIO_BYTES) {
+          alert('O áudio é muito grande (máx. 5 MB). Grave novamente.');
+          resetPreview();
+          return;
+        }
+
+        tempURL  = URL.createObjectURL(tempBlob);
+        renderPreview();
+        audioBtn.textContent = '🎙️ Gravar';     // remet l’icône micro
+      };
+
+      recorder.start();
+      audioBtn.textContent = '⏹️ Parar';        // bouton stop
+
+    } catch (err) {
+      alert('Não foi possível acessar o microfone');
+    }
+
+  /* 2) Sinon (il enregistre) → on stoppe */
+  } else if (recorder.state === 'recording') {
+    recorder.stop();
+  }
+});
 
         /* === PUBLISH === */
-        if (tempBlob && tempBlob.size > MAX_AUDIO_BYTES) {
-  alert('O áudio é muito grande (máx. 5 MB). Grave novamente.');
-  publishBtn.disabled = false;
+/* === PUBLISH === */
+publishBtn.addEventListener('click', async () => {
+
+  if (tempBlob && tempBlob.size > MAX_AUDIO_BYTES) {
+    alert('O áudio é muito grande (máx. 5 MB). Grave novamente.');
+    return;
+  }
+
+  publishBtn.disabled = true;
   return;
-}
-        publishBtn.addEventListener('click', async () => {
-          const comment = textarea.value.trim();
-          if (!comment && !tempBlob) return;
-          publishBtn.disabled=true;
+});
           
           // Générer une clé secrète
  const payload = {
