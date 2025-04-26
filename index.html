@@ -320,14 +320,11 @@
           publishBtn.disabled=true;
           
           // Générer une clé secrète
-          const secretKey = generateSecretKey();
-          
-          const payload = {
-            artefact_id: artefactId,
-            author: nameInput.value.trim() || 'Anônimo',
-            comment,
-            audioBase64: tempBlob ? await blobToBase64(tempBlob) : null,
-            secretKey: secretKey
+  const payload = {
+     artefact_id,
+     author: nameInput.value.trim() || 'Anônimo',
+     comment,
+     audioBase64: tempBlob ? await blobToBase64(tempBlob) : null
           };
           
           const res = await fetch('/.netlify/functions/add-message', {
