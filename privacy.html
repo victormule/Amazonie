@@ -11,6 +11,7 @@
         --accent: #d97706;
       }
       body {
+        
         margin: 0;
         font-family: system-ui, sans-serif;
         background: var(--bg);
@@ -45,9 +46,33 @@
       a {
         color: var(--accent);
       }
+      .back-link {
+  position: fixed;
+  top: 1rem;
+  left: 1rem;
+  z-index: 100;
+}
+.back-link a {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  background-color: var(--accent);
+  color: white;
+  text-decoration: none;
+  border-radius: 4px;
+  font-weight: 500;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  transition: all 0.2s ease;
+}
+.back-link a:hover {
+  background-color: #b45309;
+  box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+}
     </style>
   </head>
   <body>
+    <div class="back-link">
+    <a href="index.html">← Página anterior</a>
+    </div>
     <h1>Política de Privacidade</h1>
     <em class="version">Versão 1.0 — 27 de abril de 2025</em>
 
