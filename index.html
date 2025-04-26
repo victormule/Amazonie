@@ -376,9 +376,17 @@ audioBtn.addEventListener('click', async () => {
   }
 });
 
-        /* === PUBLISH === */
+     
 /* === PUBLISH === */
 publishBtn.addEventListener('click', async () => {
+  // Obtenir la valeur du commentaire
+  const comment = textarea.value.trim();
+  
+  // Vérification si au moins le commentaire ou l'audio est présent
+  if (!comment && !tempBlob) {
+    alert('Adicione um comentário ou grave um áudio.');
+    return;
+  }
 
   if (tempBlob && tempBlob.size > MAX_AUDIO_BYTES) {
     alert('O áudio é muito grande (máx. 5 MB). Grave novamente.');
@@ -386,45 +394,51 @@ publishBtn.addEventListener('click', async () => {
   }
 
   publishBtn.disabled = true;
-  return;
-});
-          
-          // Générer une clé secrète
- const payload = {
-    artefact_id: artefactId,                      // ← bonne variable
-    author     : nameInput.value.trim() || 'Anônimo',
-    comment,
-    audioBase64: tempBlob ? await blobToBase64(tempBlob) : null
- };
-          
-          const res = await fetch('/.netlify/functions/add-message', {
-            method:'POST', body: JSON.stringify(payload)
-          });
-          
-        const { success, id, delete_token } = await res.json();
+  
+  try {
+    // Générer une clé secrète
+    const payload = {
+      artefact_id: artefactId,
+      author: nameInput.value.trim() || 'Anônimo',
+      comment,
+      audioBase64: tempBlob ? await blobToBase64(tempBlob) : null
+    };
+    
+    const res = await fetch('/.netlify/functions/add-message', {
+      method: 'POST', 
+      body: JSON.stringify(payload)
+    });
+    
+    const { success, id, delete_token } = await res.json();
 
- if (success) {
-   const userMessages = JSON.parse(localStorage.getItem('userMessages') || '{}');
-   userMessages[id] = delete_token;                // ← vrai token
-   localStorage.setItem('userMessages', JSON.stringify(userMessages));
-            
-            textarea.value=''; nameInput.value=''; resetPreview();
-            
-            // Vider le cache pour cet artefact
-            Object.keys(messageCache).forEach(key => {
-              if (key.startsWith(artefactId)) delete messageCache[key];
-            });
-            
-            currentPage = 0;
-            loadMessages(artefactId, upper).then(hasMore => {
-              loadMoreBtn.style.display = hasMore ? 'block' : 'none';
-            });
-          } else { 
-            alert('Erro ao publicar'); 
-          }
-          publishBtn.disabled=false;
-        });
-      }
+    if (success) {
+      const userMessages = JSON.parse(localStorage.getItem('userMessages') || '{}');
+      userMessages[id] = delete_token;
+      localStorage.setItem('userMessages', JSON.stringify(userMessages));
+      
+      textarea.value = '';
+      nameInput.value = '';
+      resetPreview();
+      
+      // Vider le cache pour cet artefact
+      Object.keys(messageCache).forEach(key => {
+        if (key.startsWith(artefactId)) delete messageCache[key];
+      });
+      
+      currentPage = 0;
+      loadMessages(artefactId, upper).then(hasMore => {
+        loadMoreBtn.style.display = hasMore ? 'block' : 'none';
+      });
+    } else { 
+      alert('Erro ao publicar'); 
+    }
+  } catch (error) {
+    console.error('Erro ao publicar:', error);
+    alert('Erro ao publicar: ' + error.message);
+  } finally {
+    publishBtn.disabled = false;
+  }
+});
 
       // Fonction de chargement d'artefacts
       function loadArtefacts(count = 3) {
