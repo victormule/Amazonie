@@ -127,7 +127,7 @@
         try {
           const res = await fetch('/.netlify/functions/delete-message', {
             method: 'POST',
-            body: JSON.stringify({ id: messageId, secretKey: secretKey })
+            body: JSON.stringify({ id: messageId, delete_token: secretKey })
           });
           
           const result = await res.text();
@@ -320,27 +320,23 @@
           publishBtn.disabled=true;
           
           // Générer une clé secrète
-const payload = {
-  artefact_id: artefactId,                     // ← variable existante
-  author     : nameInput.value.trim() || 'Anônimo',
-  comment,
-  audioBase64: tempBlob ? await blobToBase64(tempBlob) : null
-};
+ const payload = {
+    artefact_id: artefactId,                      // ← bonne variable
+    author     : nameInput.value.trim() || 'Anônimo',
+    comment,
+    audioBase64: tempBlob ? await blobToBase64(tempBlob) : null
+ };
           
           const res = await fetch('/.netlify/functions/add-message', {
             method:'POST', body: JSON.stringify(payload)
           });
           
-          const response = await res.json();
-          
-          if(response.success){
-            // Stocker la clé secrète dans localStorage
- const { success, id, delete_token } = response;
+        const { success, id, delete_token } = await res.json();
+
  if (success) {
-   const map = JSON.parse(localStorage.getItem('userMessages') || '{}');
-   map[id] = delete_token;                // vrai token renvoyé
-   localStorage.setItem('userMessages', JSON.stringify(map));
-            localStorage.setItem('userMessages', JSON.stringify(userMessages));
+   const userMessages = JSON.parse(localStorage.getItem('userMessages') || '{}');
+   userMessages[id] = delete_token;                // ← vrai token
+   localStorage.setItem('userMessages', JSON.stringify(userMessages));
             
             textarea.value=''; nameInput.value=''; resetPreview();
             
