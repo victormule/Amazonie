@@ -249,12 +249,12 @@
       }
 
       // Charger les artefacts de manière progressive
-      const displayedImages = images.slice(0, 3);
-      let currentIndex = 3;
+      const displayedImages = images.slice(0, 4);
+      let currentIndex = 4;
 
       function loadMoreArtefacts() {
-        const nextImages = images.slice(currentIndex, currentIndex + 3);
-        currentIndex += 3;
+        const nextImages = images.slice(currentIndex, currentIndex + 4);
+        currentIndex += 4;
         
         nextImages.forEach(renderArtefact);
         
@@ -273,7 +273,7 @@
       displayedImages.forEach(renderArtefact);
       
       // Ajouter le bouton si nécessaire
-      if (images.length > 3) {
+      if (images.length > 4) {
         gallery.after(loadMoreArtefactsBtn);
       }
     </script>
