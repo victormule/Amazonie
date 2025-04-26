@@ -1,4 +1,6 @@
 const { createClient } = require('@supabase/supabase-js')
+const { randomUUID } = require('crypto') 
+
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -20,13 +22,17 @@ exports.handler = async (event) => {
       if (error) return { statusCode: 500, body: error.message }
       audio_path = fileName
     }
-
-    const { error } = await supabase
-      .from('messages')
-      .insert({ artefact_id, author, comment, audio_path })
-
+    const delete_token = randomUUID()
+    const { data, error } = await supabase
+    .from('messages')
+    .insert({ artefact_id, author, comment, audio_path, delete_token })
+    .select('id')                                // ← récupérer l’id
+    
     if (error) return { statusCode: 500, body: error.message }
-    return { statusCode: 200, body: 'ok' }
+    return {
+    statusCode: 200,
+    body: JSON.stringify({ success: true, id: data[0].id, delete_token })
+   }
   } catch (err) {
     return { statusCode: 400, body: 'Bad request' }
   }
