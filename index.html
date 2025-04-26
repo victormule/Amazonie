@@ -86,6 +86,7 @@
       /* ===== CONFIG ===== */
       // Remplace pelo URL do seu projeto Supabase (sem barra final)
       const SUPABASE_URL = "https://ynnrudehlmwtnimrukhm.supabase.co";
+      const MAX_AUDIO_BYTES = 5 * 1024 * 1024; 
 
       const images = [
         { src: "assets/image1.png", alt: "Peitoral de penas e contas" },
@@ -303,17 +304,30 @@
               const stream = await navigator.mediaDevices.getUserMedia({audio:true});
               recorder = new MediaRecorder(stream); chunks=[];
               recorder.ondataavailable=e=>chunks.push(e.data);
-              recorder.onstop=()=>{
-                tempBlob=new Blob(chunks,{type:'audio/webm'});
-                tempURL=URL.createObjectURL(tempBlob);
-                renderPreview(); audioBtn.textContent='🎙️ Gravar';
-              };
+              recorder.onstop = () => {
+              tempBlob = new Blob(chunks, { type: 'audio/webm' });
+
+              if (tempBlob.size > MAX_AUDIO_BYTES) {
+              alert('O áudio é muito grande (máx. 5 MB). Grave novamente.');
+              resetPreview();                       // on efface l’aperçu
+              return;                               // on abandonne la piste
+            }
+
+            tempURL = URL.createObjectURL(tempBlob);
+            renderPreview();
+            audioBtn.textContent = 'Gravar';
+            };
               recorder.start(); audioBtn.textContent='⏹️ Parar';
             }catch(err){ alert('Não foi possível acessar o microfone'); }
           }else if(recorder.state==='recording'){ recorder.stop(); }
         });
 
         /* === PUBLISH === */
+        if (tempBlob && tempBlob.size > MAX_AUDIO_BYTES) {
+  alert('O áudio é muito grande (máx. 5 MB). Grave novamente.');
+  publishBtn.disabled = false;
+  return;
+}
         publishBtn.addEventListener('click', async () => {
           const comment = textarea.value.trim();
           if (!comment && !tempBlob) return;
