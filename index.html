@@ -320,12 +320,12 @@
           publishBtn.disabled=true;
           
           // Générer une clé secrète
-  const payload = {
-     artefact_id,
-     author: nameInput.value.trim() || 'Anônimo',
-     comment,
-     audioBase64: tempBlob ? await blobToBase64(tempBlob) : null
-          };
+const payload = {
+  artefact_id: artefactId,                     // ← variable existante
+  author     : nameInput.value.trim() || 'Anônimo',
+  comment,
+  audioBase64: tempBlob ? await blobToBase64(tempBlob) : null
+};
           
           const res = await fetch('/.netlify/functions/add-message', {
             method:'POST', body: JSON.stringify(payload)
@@ -335,8 +335,11 @@
           
           if(response.success){
             // Stocker la clé secrète dans localStorage
-            const userMessages = JSON.parse(localStorage.getItem('userMessages') || '{}');
-            userMessages[response.id] = secretKey;
+ const { success, id, delete_token } = response;
+ if (success) {
+   const map = JSON.parse(localStorage.getItem('userMessages') || '{}');
+   map[id] = delete_token;                // vrai token renvoyé
+   localStorage.setItem('userMessages', JSON.stringify(map));
             localStorage.setItem('userMessages', JSON.stringify(userMessages));
             
             textarea.value=''; nameInput.value=''; resetPreview();
