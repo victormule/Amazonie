@@ -39,15 +39,16 @@
       button:hover { filter:brightness(1.1); }
       .preview { display:flex; align-items:center; gap:.5rem; margin-top:.5rem; }
       .preview button { padding:0 .4rem; }
-      .load-more-btn { display: block; margin: 2rem auto; }
       .load-more-comments { display: block; width: 100%; margin-top: 1rem; background: rgba(255,255,255,.1); color: var(--text); }
       .play-audio { background: rgba(255,255,255,.1); color: var(--text); padding: .3rem .5rem; font-size: .8rem; }
+      #loading-indicator { text-align: center; padding: 1rem; color: var(--accent); display: none; }
       @media (max-width:768px){ .artefact{flex-direction:column;} .artefact img{width:100%;} }
     </style>
   </head>
   <body>
     <h1>Quai Branly – <span style="color:var(--accent)">Memória & Alma</span></h1>
     <div id="gallery"></div>
+    <div id="loading-indicator">Carregando mais artefatos...</div>
 
     <script>
       /* ===== CONFIG ===== */
@@ -64,7 +65,12 @@
       ];
 
       const gallery = document.getElementById('gallery');
+      const loadingIndicator = document.getElementById('loading-indicator');
       const messageCache = {}; // Cache pour les messages
+      
+      // Variables pour le scroll infini
+      let currentIndex = 0;
+      let isLoading = false;
 
       /* === helpers === */
       const blobToBase64 = blob => new Promise(r => {
@@ -133,11 +139,10 @@
         const row = document.createElement('div'); 
         row.className = 'artefact';
         
-        // Correction du lazy loading des images
         const img = document.createElement('img');
         img.alt = alt;
-        img.src = src; // Chargement direct de l'image pour résoudre l'erreur 404
-        img.loading = 'lazy'; // Utilisation de l'attribut loading natif pour le lazy loading
+        img.src = src;
+        img.loading = 'lazy'; // Utilisation de l'attribut loading natif
         
         row.appendChild(img);
         const panel = document.createElement('div'); 
@@ -248,34 +253,44 @@
         });
       }
 
-      // Charger les artefacts de manière progressive
-      const displayedImages = images.slice(0, 4);
-      let currentIndex = 4;
+      // Fonction de chargement d'artefacts
+      function loadArtefacts(count = 3) {
+        if (isLoading || currentIndex >= images.length) return;
+        
+        isLoading = true;
+        loadingIndicator.style.display = 'block';
+        
+        const nextImages = images.slice(currentIndex, currentIndex + count);
+        currentIndex += count;
+        
+        setTimeout(() => {
+          nextImages.forEach(renderArtefact);
+          isLoading = false;
+          loadingIndicator.style.display = 'none';
+          
+          // Vérifier si nous avons besoin de charger plus d'images
+          checkScrollPosition();
+        }, 300); // Petit délai pour une meilleure UX
+      }
 
-      function loadMoreArtefacts() {
-        const nextImages = images.slice(currentIndex, currentIndex + 4);
-        currentIndex += 4;
+      // Fonction pour vérifier la position de défilement
+      function checkScrollPosition() {
+        if (isLoading || currentIndex >= images.length) return;
         
-        nextImages.forEach(renderArtefact);
+        const scrollPosition = window.innerHeight + window.scrollY;
+        const bodyHeight = document.body.offsetHeight;
         
-        if (currentIndex >= images.length) {
-          loadMoreArtefactsBtn.style.display = 'none';
+        // Charger plus d'artefacts si on approche du bas de la page
+        if (scrollPosition > bodyHeight - 500) {
+          loadArtefacts();
         }
       }
 
-      // Ajouter un bouton pour charger plus d'artefacts
-      const loadMoreArtefactsBtn = document.createElement('button');
-      loadMoreArtefactsBtn.textContent = 'Carregar mais artefatos';
-      loadMoreArtefactsBtn.className = 'load-more-btn';
-      loadMoreArtefactsBtn.addEventListener('click', loadMoreArtefacts);
-
-      // Rendre les 3 premiers artefacts
-      displayedImages.forEach(renderArtefact);
+      // Écouteur d'événement pour le défilement
+      window.addEventListener('scroll', checkScrollPosition);
       
-      // Ajouter le bouton si nécessaire
-      if (images.length > 4) {
-        gallery.after(loadMoreArtefactsBtn);
-      }
+      // Charger les premiers artefacts
+      loadArtefacts();
     </script>
   </body>
 </html>
