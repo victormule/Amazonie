@@ -7,7 +7,7 @@ const supabase = createClient(
 )
 
 /* Taille maximale du son : 5 Mo */
-const MAX_BYTES = 5 * 1024 * 1024         // 5 × 1024 × 1024 octets
+const MAX_BYTES = 10 * 1024 * 1024         // 5 × 1024 × 1024 octets
 
 exports.handler = async (event) => {
   try {
