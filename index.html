@@ -328,9 +328,9 @@ textarea {
         lower.innerHTML = `
 <input type="text" placeholder="Seu nome (opcional)" />
 <!-- maxlength + id pour le JS -->
-<textarea placeholder="Adicionar um comentário…" maxlength="500"></textarea>
+<textarea placeholder="Adicionar um comentário…" maxlength="1000"></textarea>
 <!-- compteur de caractères -->
-<div class="char-count">0 / 500</div>
+<div class="char-count">0 / 1000</div>
           <button data-publish>Publicar</button>
           <button style="margin-left:.5rem" data-audio>🗣️ Gravar</button>
           <div class="rec-info">
@@ -360,9 +360,9 @@ textarea {
         const charCount = lower.querySelector('.char-count');
 
 /* compteur temps réel */
-charCount.textContent = `${textarea.value.length} / 500`;
+charCount.textContent = `${textarea.value.length} / 1000`;
 textarea.addEventListener('input', () => {
-  charCount.textContent = `${textarea.value.length} / 500`;
+  charCount.textContent = `${textarea.value.length} / 1000`;
 });
         const recInfo = lower.querySelector('.rec-info');
         const timerSpan = lower.querySelector('.rec-time');
