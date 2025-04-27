@@ -10,7 +10,7 @@
 />
 <script defer
       src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    
+
     <!-- ================== ESTILOS ================== -->
     <style>
       :root {
@@ -392,7 +392,9 @@ textarea {
 <div class="char-count">0 / 1000</div>
           <button data-publish>Publicar</button>
           <button style="margin-left:.5rem" data-audio>🗣️ Gravar</button>
-          <button style="margin-left:.5rem" data-locate>📍 Localizar</button>
+         <button style="margin-left:.5rem"
+        class="loc-btn"
+        data-artefact="${artefactId}">📍 Localizar</button>
           <div class="rec-info">
             <span class="rec-time"></span>
             <span class="file-size"></span>
@@ -419,7 +421,9 @@ textarea {
         const preview   = lower.querySelector('[data-preview]');
         const charCount = lower.querySelector('.char-count');
         const locateBtn = lower.querySelector('[data-locate]');
-        locateBtn.addEventListener('click', () => openMap(artefactId));
+       document.querySelectorAll('.loc-btn').forEach(btn => {
+  btn.addEventListener('click', () => openMap(btn.dataset.artefact));
+});
         
 /* compteur temps réel */
 charCount.textContent = `${textarea.value.length} / 1000`;
@@ -906,22 +910,7 @@ document.getElementById('saveLoc').onclick = async () => {
     alert('Erro: ' + (await res.text()));
   }
 };
-      images.forEach(({ src, alt }) => {
-  const div  = document.createElement("div");      // conteneur
-  const img  = document.createElement("img");
-  const btn  = document.createElement("button");
 
-  img.src = src;
-  img.alt = alt;
-  img.loading = "lazy";
-
-  btn.textContent = "Localisation";
-  btn.className   = "loc-btn";
-  btn.dataset.artefact = src.replace("assets/", ""); // => image1.png
-
-  div.append(img, btn);
-  gallery.appendChild(div);
-});
 </script>
 
   </body>
