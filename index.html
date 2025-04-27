@@ -423,25 +423,41 @@ textarea.addEventListener('input', () => {
         
 // Fonction pour arrêter l'enregistrement proprement
 function stopRecording(reason = 'manual') {
-  if (recorder && recorder.state === 'recording') {
-    // Calculer et stocker la durée avant d'arrêter
-    if (startTime) {
-      recordingDuration = Math.floor((Date.now() - startTime) / 1000);
-    }
+  return new Promise(resolve => {
+    if (recorder && recorder.state === 'recording') {
 
-    try {
-      // Arrêter l'enregistrement
-      recorder.stop();
-      
-      // Si arrêt à cause de la taille, informer l'utilisateur
-      if (reason === 'size_limit') {
-        setTimeout(() => {
-          alert('Gravação parou automaticamente antes de atingir o limite de 4 MB.');
-        }, 500);
+      // Calculer et stocker la durée avant d'arrêter
+      if (startTime) {
+        recordingDuration = Math.floor((Date.now() - startTime) / 1000);
       }
-    } catch (err) {
-      console.error("Erreur lors de l'arrêt de l'enregistrement:", err);
-    }
+
+      /* déclenché quand le MediaRecorder a vraiment fini */
+      recorder.addEventListener('stop', () => {
+        // Arrêter les intervalles de vérification
+        if (timerId) {
+          clearInterval(timerId);
+          timerId = null;
+        }
+
+        // Masquer les infos d'enregistrement
+        recInfo.style.display = 'none';
+        audioBtn.textContent = '🗣️ Gravar';
+
+        resolve(); // ✅ tempBlob & duration prêts
+      }, { once: true });
+
+      try {
+        recorder.stop();                // ↗ déclenche l’événement ci-dessus
+
+        if (reason === 'size_limit') {
+          setTimeout(() => {
+            alert('Gravação parou automaticamente antes de atingir o limite de 4 MB.');
+          }, 500);
+        }
+      } catch (err) {
+        console.error("Erreur lors de l'arrêt de l'enregistrement:", err);
+        resolve();                       // on continue même en cas d'exception
+      }
     
     // Arrêter et libérer les tracks audio
     if (recorder.stream) {
@@ -574,37 +590,39 @@ function stopRecording(reason = 'manual') {
 
 /* === PUBLISH === */
 publishBtn.addEventListener('click', async () => {
-  // Arrêter l'enregistrement s'il est en cours
-  stopRecording();
-  
+  publishBtn.disabled = true;          // bloque immédiatement le double-clic
+
+  await stopRecording();               // ⏳ attend la fin éventuelle du micro
+
   // Obtenir la valeur du commentaire
   const comment = textarea.value.trim();
-  
+
   // Vérification si au moins le commentaire ou l'audio est présent
   if (!comment && !tempBlob) {
     alert('Adicione um comentário ou grave um áudio.');
+    publishBtn.disabled = false;
     return;
   }
 
   // Vérification de la taille de l'audio
   if (tempBlob) {
     try {
-      // Vérifier une dernière fois la taille
       if (tempBlob.size > MAX_AUDIO_BYTES) {
         alert('O áudio é muito grande (máx. 4 MB). Grave novamente.');
+        publishBtn.disabled = false;
         return;
       }
-      
-      // Vérifier si le blob est lisible/valide
       if (tempBlob.size === 0) {
         alert('O áudio gravado parece estar vazio ou corrompido. Grave novamente por favor.');
         resetPreview();
+        publishBtn.disabled = false;
         return;
       }
     } catch (error) {
       console.error("Erreur de vérification du blob:", error);
       alert("Erro ao verificar o áudio. Grave novamente por favor.");
       resetPreview();
+      publishBtn.disabled = false;
       return;
     }
   }
