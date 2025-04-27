@@ -461,18 +461,6 @@ function stopRecording(reason = 'manual') {
     }
   });
 }
-    // Arrêter les intervalles de vérification
-    if (timerId) {
-      clearInterval(timerId);
-      timerId = null;
-    }
-    
-    // Masquer les infos d'enregistrement
-    recInfo.style.display = 'none';
-    
-    // Réinitialiser l'affichage pour le prochain enregistrement
-    audioBtn.textContent = '🗣️ Gravar';
-  }
 
 
         /* === LOAD EXISTING === */
