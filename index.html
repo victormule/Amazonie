@@ -90,6 +90,19 @@
         color: #ff4d4d;
       }
       
+      /* Limite d’agrandissement : 200 px */
+textarea {
+  min-height: 60px;
+  max-height: 200px;   /* ← nouvelle ligne */
+  resize: vertical;
+}
+.char-count {
+  font-size: .75rem;
+  text-align: right;
+  color: #aaa;
+  margin-top: -6px;     /* remonte un peu sous le textarea */
+  margin-bottom: .5rem;
+}
       @media (max-width:768px){ .artefact{flex-direction:column;} .artefact img{width:100%;} }
     </style>
   </head>
@@ -285,8 +298,11 @@
         const lower = document.createElement('div'); 
         lower.className='panel-lower';
         lower.innerHTML = `
-          <input type="text" placeholder="Seu nome (opcional)" />
-          <textarea placeholder="Adicionar um comentário…"></textarea>
+<input type="text" placeholder="Seu nome (opcional)" />
+<!-- maxlength + id pour le JS -->
+<textarea id="comment-box" placeholder="Adicionar um comentário…" maxlength="500"></textarea>
+<!-- compteur de caractères -->
+<div class="char-count">0 / 500</div>
           <button data-publish>Publicar</button>
           <button style="margin-left:.5rem" data-audio>🗣️ Gravar</button>
           <div class="rec-info">
@@ -300,6 +316,13 @@
         row.appendChild(panel); 
         gallery.appendChild(row);
 
+        const charCount = lower.querySelector('.char-count');
+
+/* compteur temps réel */
+textarea.addEventListener('input', () => {
+  charCount.textContent = `${textarea.value.length} / 500`;
+});
+        
         // Bouton pour charger plus de commentaires
         const loadMoreBtn = document.createElement('button');
         loadMoreBtn.textContent = 'Carregar mais comentários';
