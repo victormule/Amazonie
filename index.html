@@ -76,6 +76,10 @@
         margin-left: .5rem;
         font-size: .8rem;
         color: #ccc;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 5px 0;
       }
       
       .size-warning {
@@ -104,6 +108,8 @@
       // Seuils d'avertissement (80% et 95% de la taille maximale)
       const WARNING_THRESHOLD = 0.8 * MAX_AUDIO_BYTES;
       const CRITICAL_THRESHOLD = 0.95 * MAX_AUDIO_BYTES;
+      // Intervalle pour récupérer des données pendant l'enregistrement (200ms)
+      const RECORDING_TIMESLICE = 200;
 
       const images = [
         { src: "assets/image1.png", alt: "Peitoral de penas e contas" },
@@ -147,6 +153,7 @@
       }
       
       function formatFileSize(bytes) {
+        if (bytes === 0) return "0 B";
         if (bytes < 1024) return bytes + " B";
         const kb = bytes / 1024;
         if (kb < 1024) return kb.toFixed(1) + " KB";
@@ -282,7 +289,10 @@
           <textarea placeholder="Adicionar um comentário…"></textarea>
           <button data-publish>Publicar</button>
           <button style="margin-left:.5rem" data-audio>🗣️ Gravar</button>
-          <div class="rec-info"><span class="rec-time"></span> <span class="file-size"></span></div>
+          <div class="rec-info">
+            <span class="rec-time"></span>
+            <span class="file-size"></span>
+          </div>
           <div class="preview" data-preview></div>
         `;
         
@@ -312,20 +322,23 @@
         let timerId     = null;      // setInterval id
         let recordingDuration = 0;   // durée de l'enregistrement en secondes
         let currentSize = 0;         // taille courante de l'enregistrement
-        let sizeCheckId = null;      // setInterval pour la vérification de taille
         
         let tempBlob = null;
         let tempURL  = null;
         let recorder = null, chunks=[];
         let currentPage = 0;
 
+        // Cacher l'élément rec-info au début
+        recInfo.style.display = 'none';
+
         function resetPreview(){
           if (tempURL){ URL.revokeObjectURL(tempURL); tempURL=null; }
-          tempBlob=null; preview.innerHTML='';
+          tempBlob = null;
+          preview.innerHTML = '';
         }
         
         function renderPreview(){
-          preview.innerHTML=''; 
+          preview.innerHTML = ''; 
           if(!tempURL) return;
           
           const audio = document.createElement('audio'); 
@@ -345,32 +358,34 @@
           preview.append(audio, durLabel, del);
         }
         
-        // Fonction pour vérifier et mettre à jour la taille en temps réel
-        function updateRecordingSize() {
-          if (!recorder || recorder.state !== 'recording') return;
-          
-          // Créer un blob temporaire pour vérifier la taille
-          const tempCheckBlob = new Blob(chunks, { type: 'audio/webm' });
-          currentSize = tempCheckBlob.size;
-          
-          // Mettre à jour l'affichage
-          const sizeText = formatFileSize(currentSize);
-          const percentUsed = (currentSize / MAX_AUDIO_BYTES) * 100;
-          
-          // Définir la classe en fonction du seuil
-          let className = '';
-          if (currentSize > CRITICAL_THRESHOLD) {
-            className = 'size-critical';
-          } else if (currentSize > WARNING_THRESHOLD) {
-            className = 'size-warning';
+        // Fonction pour mettre à jour l'affichage de la taille du fichier
+        function updateFileSizeDisplay() {
+          // Créer un blob temporaire avec tous les chunks actuels pour mesurer la taille
+          if (chunks.length === 0) {
+            fileSize.textContent = `(0 B / 5 MB)`;
+            return;
           }
           
-          fileSize.textContent = `(${sizeText} / 5 MB)`;
-          fileSize.className = className;
-          
-          // Arrêter automatiquement si on approche de la limite
-          if (currentSize >= CRITICAL_THRESHOLD) {
-            stopRecording('size_limit');
+          try {
+            const currentBlob = new Blob(chunks, { type: 'audio/webm' });
+            currentSize = currentBlob.size;
+            
+            // Mettre à jour l'affichage
+            fileSize.textContent = `(${formatFileSize(currentSize)} / 5 MB)`;
+            
+            // Appliquer des couleurs d'avertissement en fonction de la taille
+            if (currentSize > CRITICAL_THRESHOLD) {
+              fileSize.className = 'size-critical';
+              // Si dépasse le seuil critique, arrêter automatiquement
+              stopRecording('size_limit');
+            } else if (currentSize > WARNING_THRESHOLD) {
+              fileSize.className = 'size-warning';
+            } else {
+              fileSize.className = '';
+            }
+            
+          } catch (err) {
+            console.error("Erreur lors de la mesure de la taille:", err);
           }
         }
         
@@ -381,14 +396,16 @@
             if (startTime) {
               recordingDuration = Math.floor((Date.now() - startTime) / 1000);
             }
-            
+
             // Arrêter l'enregistrement
             try {
               recorder.stop();
               
               // Si arrêt à cause de la taille, informer l'utilisateur
               if (reason === 'size_limit') {
-                alert('Gravação parou automaticamente antes de atingir o limite de 5 MB.');
+                setTimeout(() => {
+                  alert('Gravação parou automaticamente antes de atingir o limite de 5 MB.');
+                }, 500);
               }
             } catch (err) {
               console.error("Erreur lors de l'arrêt de l'enregistrement:", err);
@@ -409,15 +426,11 @@
               timerId = null;
             }
             
-            if (sizeCheckId) {
-              clearInterval(sizeCheckId);
-              sizeCheckId = null;
-            }
+            // Masquer les infos d'enregistrement
+            recInfo.style.display = 'none';
             
-            // Réinitialiser l'affichage
-            timerSpan.textContent = '';
-            fileSize.textContent = '';
-            fileSize.className = '';
+            // Réinitialiser l'affichage pour le prochain enregistrement
+            audioBtn.textContent = '🗣️ Gravar';     // remet l'icône micro
           }
         }
 
@@ -437,41 +450,49 @@
           /* 1) Si l'enregistreur est inactif → on démarre */
           if (!recorder || recorder.state === 'inactive') {
             try {
+              // Réinitialiser l'interface
+              resetPreview();
+              chunks = [];
+              currentSize = 0;
+              recordingDuration = 0;
+              
+              // Afficher les infos d'enregistrement et initialiser
+              recInfo.style.display = 'flex';
+              timerSpan.textContent = '00:00';
+              fileSize.textContent = '(0 B / 5 MB)';
+              fileSize.className = '';
+              
               // Nouvelle demande d'autorisation à chaque fois
               const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-              recorder = new MediaRecorder(stream);
+              recorder = new MediaRecorder(stream, {
+                mimeType: 'audio/webm' // Spécifier le format
+              });
+              
               // Stocker le stream pour pouvoir l'arrêter plus tard
               recorder.stream = stream;
-              chunks = [];
-              recordingDuration = 0;
-              currentSize = 0;
-
-              /* ---------- CHRONOMÈTRE : initialise ---------- */
-              startTime = Date.now();             // mémorise l'instant de départ
-              timerSpan.textContent = '00:00';    // affiche 0:00
-              fileSize.textContent = '(0 MB / 5 MB)';
               
+              /* ---------- CHRONOMÈTRE : initialise ---------- */
+              startTime = Date.now();
               timerId = setInterval(() => {
                 const elapsed = Math.floor((Date.now() - startTime) / 1000);
                 timerSpan.textContent = formatTime(elapsed);
               }, 1000);
-              
-              // Vérifier la taille toutes les 500ms
-              sizeCheckId = setInterval(updateRecordingSize, 500);
 
-              recorder.addEventListener('dataavailable', e => chunks.push(e.data));
+              // Événement pour récupérer les données pendant l'enregistrement
+              recorder.addEventListener('dataavailable', e => {
+                if (e.data && e.data.size > 0) {
+                  chunks.push(e.data);
+                  // Mise à jour de la taille à chaque nouveau morceau
+                  updateFileSizeDisplay();
+                }
+              });
 
               recorder.addEventListener('stop', () => {
-                /* –– stop chrono et vérification taille –– */
+                // Arrêter le chronomètre
                 if (timerId) {
                   clearInterval(timerId);
                   timerId = null;
-                }
-                
-                if (sizeCheckId) {
-                  clearInterval(sizeCheckId);
-                  sizeCheckId = null;
                 }
                 
                 // Calculer la durée finale si pas déjà fait
@@ -479,19 +500,15 @@
                   recordingDuration = Math.floor((Date.now() - startTime) / 1000);
                 }
                 startTime = null;
-                timerSpan.textContent = '';       // efface l'affichage
-                fileSize.textContent = '';       // efface l'affichage de taille
+                
+                // Arrêter tous les tracks audio
+                recorder.stream.getTracks().forEach(track => track.stop());
 
-                /* –– arrêter tous les tracks audio –– */
-                if (recorder.stream) {
-                  recorder.stream.getTracks().forEach(track => track.stop());
-                }
-
-                /* –– génère l'aperçu –– */
+                // Générer l'aperçu de l'audio
                 try {
                   tempBlob = new Blob(chunks, { type: 'audio/webm' });
                   
-                  /* vérification taille max 5 Mo */
+                  /* vérification finale taille max 5 Mo */
                   if (tempBlob.size > MAX_AUDIO_BYTES) {
                     alert('O áudio é muito grande (máx. 5 MB). Grave novamente.');
                     resetPreview();
@@ -505,16 +522,16 @@
                   alert("Erro ao processar o áudio gravado.");
                   resetPreview();
                 }
-                
-                audioBtn.textContent = '🗣️ Gravar';     // remet l'icône micro
               });
 
-              recorder.start();
+              // Important: récupérer des données toutes les X millisecondes
+              recorder.start(RECORDING_TIMESLICE);
               audioBtn.textContent = '⏹️ Parar';        // bouton stop
 
             } catch (err) {
               console.error("Erreur d'accès au micro:", err);
               alert('Não foi possível acessar o microfone');
+              recInfo.style.display = 'none';
             }
 
           /* 2) Sinon (il enregistre) → on stoppe */
