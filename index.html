@@ -421,53 +421,46 @@ textarea.addEventListener('input', () => {
           }
         }
         
+
 // Fonction pour arrêter l'enregistrement proprement
 function stopRecording(reason = 'manual') {
   return new Promise(resolve => {
-    if (recorder && recorder.state === 'recording') {
-
-      // Calculer et stocker la durée avant d'arrêter
-      if (startTime) {
-        recordingDuration = Math.floor((Date.now() - startTime) / 1000);
-      }
-
-      /* déclenché quand le MediaRecorder a vraiment fini */
-      recorder.addEventListener('stop', () => {
-        // Arrêter les intervalles de vérification
-        if (timerId) {
-          clearInterval(timerId);
-          timerId = null;
-        }
-
-        // Masquer les infos d'enregistrement
-        recInfo.style.display = 'none';
-        audioBtn.textContent = '🗣️ Gravar';
-
-        resolve(); // ✅ tempBlob & duration prêts
-      }, { once: true });
-
-      try {
-        recorder.stop();                // ↗ déclenche l’événement ci-dessus
-
-        if (reason === 'size_limit') {
-          setTimeout(() => {
-            alert('Gravação parou automaticamente antes de atingir o limite de 4 MB.');
-          }, 500);
-        }
-      } catch (err) {
-        console.error("Erreur lors de l'arrêt de l'enregistrement:", err);
-        resolve();                       // on continue même en cas d'exception
-      }
-    
-    // Arrêter et libérer les tracks audio
-    if (recorder.stream) {
-      try {
-        recorder.stream.getTracks().forEach(track => track.stop());
-      } catch (err) {
-        console.error("Erreur lors de l'arrêt des tracks audio:", err);
-      }
+    // Rien à stopper ?
+    if (!recorder || recorder.state !== 'recording') {
+      return resolve();
     }
-    
+
+    // Durée en secondes déjà écoulées
+    if (startTime) {
+      recordingDuration = Math.floor((Date.now() - startTime) / 1000);
+    }
+
+    // Quand le MediaRecorder a vraiment fini…
+    const onStop = () => {
+      recorder.removeEventListener('stop', onStop);   // nettoie l'écouteur
+      resolve();                                      // ✅ tempBlob est prêt
+    };
+    recorder.addEventListener('stop', onStop, { once: true });
+
+    try {
+      recorder.stop();                                // déclenche 'stop'
+      if (reason === 'size_limit') {
+        setTimeout(() => {
+          alert('Gravação parou automaticamente antes de atingir o limite de 4 MB.');
+        }, 500);
+      }
+    } catch (err) {
+      console.error("Erreur lors de l'arrêt de l'enregistrement:", err);
+      resolve();                                      // on continue malgré l’erreur
+    }
+
+    // Libère aussitôt les pistes audio
+    if (recorder.stream) {
+      try { recorder.stream.getTracks().forEach(t => t.stop()); }
+      catch (err) { console.error("Erreur lors de l'arrêt des tracks audio:", err); }
+    }
+  });
+}
     // Arrêter les intervalles de vérification
     if (timerId) {
       clearInterval(timerId);
