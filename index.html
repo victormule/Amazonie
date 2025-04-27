@@ -430,38 +430,47 @@ function stopRecording(reason = 'manual') {
       return resolve();
     }
 
-    // Durée en secondes déjà écoulées
+    // Durée déjà écoulée
     if (startTime) {
       recordingDuration = Math.floor((Date.now() - startTime) / 1000);
     }
 
-    // Quand le MediaRecorder a vraiment fini…
+    // Quand le MediaRecorder a réellement fini…
     const onStop = () => {
-      recorder.removeEventListener('stop', onStop);   // nettoie l'écouteur
-      resolve();                                      // ✅ tempBlob est prêt
+      recorder.removeEventListener('stop', onStop);
+
+      /* ---- remise à zéro UI ---- */
+      if (timerId) {
+        clearInterval(timerId);
+        timerId = null;
+      }
+      recInfo.style.display = 'none';
+      audioBtn.textContent = '🗣️ Gravar';
+
+      resolve();               // ✅ tempBlob & durée prêts
     };
     recorder.addEventListener('stop', onStop, { once: true });
 
+    // Lance l’arrêt
     try {
-      recorder.stop();                                // déclenche 'stop'
+      recorder.stop();
       if (reason === 'size_limit') {
         setTimeout(() => {
           alert('Gravação parou automaticamente antes de atingir o limite de 4 MB.');
         }, 500);
       }
     } catch (err) {
-      console.error("Erreur lors de l'arrêt de l'enregistrement:", err);
-      resolve();                                      // on continue malgré l’erreur
+      console.error("Erreur lors de l'arrêt du MediaRecorder :", err);
+      onStop();                // force la remise à zéro même en cas d’exception
     }
 
-    // Libère aussitôt les pistes audio
+    // Coupe immédiatement les pistes audio
     if (recorder.stream) {
       try { recorder.stream.getTracks().forEach(t => t.stop()); }
-      catch (err) { console.error("Erreur lors de l'arrêt des tracks audio:", err); }
+      catch (err) { console.error("Erreur lors de l'arrêt des pistes audio :", err); }
     }
   });
 }
-
 
         /* === LOAD EXISTING === */
         loadMessages(artefactId, upper).then(hasMore => {
