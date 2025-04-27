@@ -1,0 +1,1 @@
+select * from locations where artefact_id = ? limit 1
