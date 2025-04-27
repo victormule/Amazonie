@@ -6,8 +6,8 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY        // rôle service → insert / delete
 )
 
-/* Taille maximale du son : 5 Mo */
-const MAX_BYTES = 10 * 1024 * 1024         // 5 × 1024 × 1024 octets
+/* Taille maximale du son : 6 Mo */
+const MAX_BYTES = 6 * 1024 * 1024         // 5 × 1024 × 1024 octets
 
 exports.handler = async (event) => {
   try {
