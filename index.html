@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Quai Branly – Memória & Alma</title>
 
+    <link rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+/>
+<script defer
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
     <!-- ================== ESTILOS ================== -->
     <style>
       :root {
@@ -315,6 +321,18 @@ textarea {
         img.alt = alt;
         img.src = src;
         img.loading = 'lazy'; // Utilisation de l'attribut loading natif
+
+fetch(`/.netlify/functions/get-location?artefact=${artefactId}`)
+  .then(r=>r.json())
+  .then(loc=>{
+     if(loc.lat){
+       const pin=document.createElement('span');
+       pin.textContent='📍';
+       pin.title='Localização disponível';
+       pin.style.fontSize='1.4rem';
+       row.insertBefore(pin,img);   // ou ailleurs dans le DOM
+     }
+  }).catch(()=>{});
         
         row.appendChild(img);
         const panel = document.createElement('div'); 
@@ -333,6 +351,7 @@ textarea {
 <div class="char-count">0 / 1000</div>
           <button data-publish>Publicar</button>
           <button style="margin-left:.5rem" data-audio>🗣️ Gravar</button>
+          <button style="margin-left:.5rem" data-locate>📍 Localizar</button>
           <div class="rec-info">
             <span class="rec-time"></span>
             <span class="file-size"></span>
@@ -358,7 +377,9 @@ textarea {
         const audioBtn  = lower.querySelector('[data-audio]');
         const preview   = lower.querySelector('[data-preview]');
         const charCount = lower.querySelector('.char-count');
-
+        const locateBtn = lower.querySelector('[data-locate]');
+        locateBtn.addEventListener('click', () => openMap(artefactId));
+        
 /* compteur temps réel */
 charCount.textContent = `${textarea.value.length} / 1000`;
 textarea.addEventListener('input', () => {
@@ -756,6 +777,71 @@ publishBtn.addEventListener('click', async () => {
       
       // Charger les premiers artefacts
       loadArtefacts();
+
+      /* --- MAP singleton --- */
+let map, currentMarker, currentArtefactId;
+
+/* montrer la modale et initialiser la carte */
+function openMap(artefactId){
+  currentArtefactId = artefactId;
+  document.getElementById('map-modal').style.display='flex';
+
+  if(!map){
+    map = L.map('leaflet-container').setView([-3,-63],5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+      attribution:'© OSM'
+    }).addTo(map);
+
+    map.on('click',e=>{
+      if(currentMarker) map.removeLayer(currentMarker);
+      currentMarker = L.marker(e.latlng,{draggable:true}).addTo(map);
+    });
+  }
+}
+
+/* fermer */
+function closeMap(){
+  document.getElementById('map-modal').style.display='none';
+  if(currentMarker){ map.removeLayer(currentMarker); currentMarker=null;}
+}
+document.getElementById('closeMap').onclick=closeMap;
+
+/* enregistrer */
+document.getElementById('saveLoc').onclick=async ()=>{
+  if(!currentMarker){
+    alert('Clique na carta para escolher o ponto.');
+    return;
+  }
+  const {lat,lng}=currentMarker.getLatLng();
+  const author = prompt('Seu nome (opcional)','') || 'Anônimo';
+
+  try{
+    const res = await fetch('/.netlify/functions/set-location',{
+      method:'POST',
+      body:JSON.stringify({artefact_id:currentArtefactId,lat,lng,author})
+    });
+    if(res.ok){
+      alert('Localização salva!');
+      closeMap();
+    }else{
+      alert('Erro: '+await res.text());
+    }
+  }catch(e){ alert('Erro: '+e.message); }
+};
+      
     </script>
+    
+    <div id="map-modal" style="
+  display:none;position:fixed;inset:0;z-index:9999;
+  background:rgba(0,0,0,.7);align-items:center;justify-content:center;">
+  <div style="width:90%;max-width:600px;height:80vh;position:relative;
+              background:#222;border:1px solid #555;">
+      <div id="leaflet-container" style="height:100%;"></div>
+      <button id="saveLoc" style="
+        position:absolute;bottom:10px;left:10px;">💾 Salvar</button>
+      <button id="closeMap" style="
+        position:absolute;bottom:10px;right:10px;">✖️</button>
+  </div>
+</div>
   </body>
 </html>
