@@ -820,57 +820,86 @@ publishBtn.addEventListener('click', async () => {
       loadArtefacts();
 
       /* --- MAP singleton --- */
-let map, currentMarker, currentArtefactId;
+let map, drawnMarkers = [];   // 💡 stocke tous les marqueurs affichés
+let currentArtefactId = null;
 
-/* montrer la modale et initialiser la carte */
-function openMap(artefactId){
+async function openMap(artefactId){
   currentArtefactId = artefactId;
   const modal = document.getElementById('map-modal');
-  modal.style.display='flex';
+  modal.style.display = 'flex';
 
   if(!map){
-    map = L.map('leaflet-container').setView([-3,-63],5);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-      {attribution:'© OSM'}).addTo(map);
+    map = L.map('leaflet-container').setView([-3,-63], 5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+      attribution:'© OpenStreetMap'
+    }).addTo(map);
+
     map.on('click', e=>{
       if(currentMarker) map.removeLayer(currentMarker);
       currentMarker = L.marker(e.latlng,{draggable:true}).addTo(map);
     });
   }else{
-    /* important quand on change display:none -> flex */
     setTimeout(()=> map.invalidateSize(), 100);
   }
-}
 
-/* fermer */
-function closeMap(){
-  document.getElementById('map-modal').style.display='none';
-  if(currentMarker){ map.removeLayer(currentMarker); currentMarker=null;}
-}
-document.getElementById('closeMap').onclick=closeMap;
+  /* 1. Efface les marqueurs affichés précédemment */
+  drawnMarkers.forEach(m => map.removeLayer(m));
+  drawnMarkers = [];
 
-/* enregistrer */
-document.getElementById('saveLoc').onclick=async ()=>{
-  if(!currentMarker){
-    alert('Clique na carta para escolher o ponto.');
-    return;
-  }
-  const {lat,lng}=currentMarker.getLatLng();
-  const author = prompt('Seu nome (opcional)','') || 'Anônimo';
-
+  /* 2. Récupère tous les points pour cet artefact */
   try{
-    const res = await fetch('/.netlify/functions/set-location',{
-      method:'POST',
-      body:JSON.stringify({artefact_id:currentArtefactId,lat,lng,author})
+    const res = await fetch('/.netlify/functions/get-locations?artefact='+artefactId);
+    const points = res.ok ? await res.json() : [];
+    points.forEach(p=>{
+      const m = L.marker([p.lat, p.lng]).addTo(map)
+                .bindPopup(`${p.author || 'Anônimo'}<br>${new Date(p.created_at).toLocaleDateString()}`);
+      drawnMarkers.push(m);
     });
-    if(res.ok){
-      alert('Localização salva!');
-      closeMap();
+
+    /* 3. Centre la carte sur l’ensemble des points (si on en a) */
+    if(points.length){
+      const group = L.featureGroup(drawnMarkers);
+      map.fitBounds(group.getBounds().pad(0.25));
     }else{
-      alert('Erro: '+await res.text());
+      map.setView([-3,-63],5);   // vue par défaut Amazonie
     }
-  }catch(e){ alert('Erro: '+e.message); }
-};
+  }catch(e){
+    console.error(e);
+  }
+}
+
+      /* ----------  ENREGISTRER LA POSITION  ---------- */
+  let currentMarker = null;   /* <--  variable dispo dans openMap ET ici */
+
+  document.getElementById('saveLoc').onclick = async () => {
+    if (!currentMarker) {
+      alert('Clique na carta para escolher o ponto.');
+      return;
+    }
+    const { lat, lng } = currentMarker.getLatLng();
+    const author = prompt('Seu nome (opcional)', '') || 'Anônimo';
+
+    /* 1) appel Netlify → set-location */
+    const res = await fetch('/.netlify/functions/set-location', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },   //  <<<<<<  MANQUAIT
+      body: JSON.stringify({
+        artefact_id: currentArtefactId,
+        lat,
+        lng,
+        author
+      })
+    });
+
+    /* 2) feedback + reset */
+    if (res.ok) {
+      alert('Localização salva!');
+      currentMarker = null;              // on efface le marqueur temporaire
+      closeMap();                        // ferme la modale
+    } else {
+      alert('Erro: ' + (await res.text()));
+    }
+  };
       
      </script>
   </body>
