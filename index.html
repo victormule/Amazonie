@@ -166,6 +166,15 @@ textarea {
     <div id="gallery"></div>
     <div id="loading-indicator">Carregando mais artefatos...</div>
 
+     <div id="map-modal" style="display:none;position:fixed;inset:0;z-index:9999;
+  background:rgba(0,0,0,.7);align-items:center;justify-content:center;">
+  <div style="width:90%;max-width:600px;height:80vh;position:relative;background:#222;border:1px solid #555;">
+      <div id="leaflet-container" style="height:100%;"></div>
+<button id="saveLoc" class="map-btn">💾 Salvar</button>
+<button id="closeMap" class="map-btn">✖️</button>
+  </div>
+</div>
+    
     <script>
       /* ===== CONFIG ===== */
       // Remplace pelo URL do seu projeto Supabase (sem barra final)
@@ -851,15 +860,5 @@ document.getElementById('saveLoc').onclick=async ()=>{
 };
       
      </script>
-    
-    <div id="map-modal" style="display:none;position:fixed;inset:0;z-index:9999;
-  background:rgba(0,0,0,.7);align-items:center;justify-content:center;">
-  <div style="width:90%;max-width:600px;height:80vh;position:relative;background:#222;border:1px solid #555;">
-      <div id="leaflet-container" style="height:100%;"></div>
-<button id="saveLoc" class="map-btn">💾 Salvar</button>
-<button id="closeMap" class="map-btn">✖️</button>
-  </div>
-</div>
-     
   </body>
 </html>
