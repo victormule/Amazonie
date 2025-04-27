@@ -96,7 +96,7 @@
         color: #ff4d4d;
       }
       
-      /* Limite d’agrandissement : 200 px */
+      /* Limite d'agrandissement : 200 px */
 textarea {
   min-height: 60px;
   max-height: 200px;   /* ← nouvelle ligne */
@@ -119,22 +119,48 @@ textarea {
   overflow-wrap: anywhere;
 }
 /* Boutons sur la carte */
-.map-btn{
-  position:absolute;
-  bottom:10px;
-  padding:.4rem .8rem;
-  background:var(--accent);
-  border:none;
-  color:#000;
-  border-radius:4px;
-  cursor:pointer;
-  font-size:1rem;
-  z-index:1100;           /* ← plus haut que .leaflet-container (0) et que les contrôles Leaflet (1000) */
+.map-btn {
+  position: absolute;
+  bottom: 10px;
+  padding: .4rem .8rem;
+  background: var(--accent);
+  border: none;
+  color: #000;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  z-index: 1500;       /* Plus haut que les contrôles Leaflet */
 }
-.map-btn:hover{filter:brightness(1.1);}
-#saveLoc { left:10px;   } /* coin bas-gauche  */
-#closeMap{ right:10px;  } /* coin bas-droit   */
+.map-btn:hover { filter: brightness(1.1); }
+#saveLoc { left: 10px; }       /* coin bas-gauche */
+#closeMap { right: 10px; }     /* coin bas-droit */
 
+/* Style du container du modal pour la carte */
+#map-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0,0,0,.8);
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+#map-modal > div {
+  width: 90%;
+  max-width: 600px;
+  height: 80vh;
+  position: relative;
+  background: #222;
+  border: 1px solid #555;
+}
+
+#leaflet-container {
+  height: 100%;
+  width: 100%;
+  position: relative;
+  z-index: 1000;
+}
       
       @media (max-width:768px){ .artefact{flex-direction:column;} .artefact img{width:100%;} }
     </style>
@@ -166,14 +192,13 @@ textarea {
     <div id="gallery"></div>
     <div id="loading-indicator">Carregando mais artefatos...</div>
 
-     <div id="map-modal" style="display:none;position:fixed;inset:0;z-index:9999;
-  background:rgba(0,0,0,.7);align-items:center;justify-content:center;">
-  <div style="width:90%;max-width:600px;height:80vh;position:relative;background:#222;border:1px solid #555;">
-      <div id="leaflet-container" style="height:100%;"></div>
-<button id="saveLoc" class="map-btn">💾 Salvar</button>
-<button id="closeMap" class="map-btn">✖️</button>
-  </div>
-</div>
+    <div id="map-modal">
+      <div>
+        <div id="leaflet-container"></div>
+        <button id="saveLoc" class="map-btn">💾 Salvar</button>
+        <button id="closeMap" class="map-btn">✖️</button>
+      </div>
+    </div>
     
     <script>
       /* ===== CONFIG ===== */
@@ -518,7 +543,7 @@ function stopRecording(reason = 'manual') {
     };
     recorder.addEventListener('stop', onStop, { once: true });
 
-    // Lance l’arrêt
+    // Lance l'arrêt
     try {
       recorder.stop();
       if (reason === 'size_limit') {
@@ -528,7 +553,7 @@ function stopRecording(reason = 'manual') {
       }
     } catch (err) {
       console.error("Erreur lors de l'arrêt du MediaRecorder :", err);
-      onStop();                // force la remise à zéro même en cas d’exception
+      onStop();                // force la remise à zéro même en cas d'exception
     }
 
     // Coupe immédiatement les pistes audio
