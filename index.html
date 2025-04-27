@@ -374,18 +374,6 @@ textarea {
         img.alt = alt;
         img.src = src;
         img.loading = 'lazy'; // Utilisation de l'attribut loading natif
-
-fetch(`/.netlify/functions/get-location?artefact=${artefactId}`)
-  .then(r=>r.json())
-  .then(loc=>{
-     if(loc.lat){
-       const pin=document.createElement('span');
-       pin.textContent='📍';
-       pin.title='Localização disponível';
-       pin.style.fontSize='1.4rem';
-       row.insertBefore(pin,img);   // ou ailleurs dans le DOM
-     }
-  }).catch(()=>{});
         
         row.appendChild(img);
         const panel = document.createElement('div'); 
