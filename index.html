@@ -123,8 +123,9 @@
       }
       
       function formatTime(sec) {
+        if (!Number.isFinite(sec)) return "00:00"; // Protection contre les valeurs non numériques
         const m = Math.floor(sec / 60).toString().padStart(2,'0');
-        const s = (sec % 60).toString().padStart(2,'0');
+        const s = Math.floor(sec % 60).toString().padStart(2,'0');
         return `${m}:${s}`;
       }
       
@@ -255,7 +256,7 @@
           <input type="text" placeholder="Seu nome (opcional)" />
           <textarea placeholder="Adicionar um comentário…"></textarea>
           <button data-publish>Publicar</button>
-          <button style="margin-left:.5rem" data-audio>🎤 Gravar</button>
+          <button style="margin-left:.5rem" data-audio>🎙️ Gravar</button>
           <span class="rec-time" style="margin-left:.5rem;font-size:.8rem;color:#ccc"></span>
           <div class="preview" data-preview></div>
         `;
@@ -282,6 +283,7 @@
 
         let startTime   = null;      // horodatage début
         let timerId     = null;      // setInterval id
+        let recordingDuration = 0;   // durée de l'enregistrement en secondes
         
         let tempBlob = null;
         let tempURL  = null;
@@ -294,27 +296,48 @@
         }
         
         function renderPreview(){
-          preview.innerHTML=''; if(!tempURL) return;
-          const audio=document.createElement('audio'); audio.controls=true; audio.src=tempURL;
-          audio.addEventListener('loadedmetadata', () => {
-            const dur = formatTime(Math.round(audio.duration));
-            const label = document.createElement('span');
-            label.textContent = ` ${dur}`;
-            label.style.fontSize = '.8rem';
-            label.style.color = '#aaa';
-            preview.appendChild(label);
-          });
-          const del=document.createElement('button'); del.textContent='🗑️'; del.title='Excluir a gravação';
-          del.onclick=resetPreview; preview.append(audio,del);
+          preview.innerHTML=''; 
+          if(!tempURL) return;
+          
+          const audio = document.createElement('audio'); 
+          audio.controls = true; 
+          audio.src = tempURL;
+          
+          const durLabel = document.createElement('span');
+          durLabel.textContent = ` ${formatTime(recordingDuration)}`;
+          durLabel.style.fontSize = '.8rem';
+          durLabel.style.color = '#aaa';
+          
+          const del = document.createElement('button'); 
+          del.textContent = '🗑️'; 
+          del.title = 'Excluir a gravação';
+          del.onclick = resetPreview; 
+          
+          preview.append(audio, durLabel, del);
         }
         
         // Fonction pour arrêter l'enregistrement proprement
         function stopRecording() {
           if (recorder && recorder.state === 'recording') {
-            recorder.stop();
-            // On arrête aussi tous les tracks (libérer le micro)
+            // Calculer et stocker la durée avant d'arrêter
+            if (startTime) {
+              recordingDuration = Math.floor((Date.now() - startTime) / 1000);
+            }
+            
+            // Arrêter l'enregistrement
+            try {
+              recorder.stop();
+            } catch (err) {
+              console.error("Erreur lors de l'arrêt de l'enregistrement:", err);
+            }
+            
+            // Arrêter et libérer les tracks audio
             if (recorder.stream) {
-              recorder.stream.getTracks().forEach(track => track.stop());
+              try {
+                recorder.stream.getTracks().forEach(track => track.stop());
+              } catch (err) {
+                console.error("Erreur lors de l'arrêt des tracks audio:", err);
+              }
             }
           }
         }
@@ -342,6 +365,7 @@
               // Stocker le stream pour pouvoir l'arrêter plus tard
               recorder.stream = stream;
               chunks = [];
+              recordingDuration = 0;
 
               /* ---------- CHRONOMÈTRE : initialise ---------- */
               startTime = Date.now();             // mémorise l'instant de départ
@@ -351,12 +375,16 @@
                 timerSpan.textContent = formatTime(elapsed);
               }, 1000);
 
-              recorder.ondataavailable = e => chunks.push(e.data);
+              recorder.addEventListener('dataavailable', e => chunks.push(e.data));
 
-              recorder.onstop = () => {
+              recorder.addEventListener('stop', () => {
                 /* –– stop chrono –– */
                 clearInterval(timerId);
                 timerId = null;
+                // Calculer la durée finale si pas déjà fait
+                if (startTime) {
+                  recordingDuration = Math.floor((Date.now() - startTime) / 1000);
+                }
                 startTime = null;
                 timerSpan.textContent = '';       // efface l'affichage
 
@@ -366,30 +394,38 @@
                 }
 
                 /* –– génère l'aperçu –– */
-                tempBlob = new Blob(chunks, { type: 'audio/webm' });
+                try {
+                  tempBlob = new Blob(chunks, { type: 'audio/webm' });
+                  
+                  /* vérification taille max 5 Mo */
+                  if (tempBlob.size > MAX_AUDIO_BYTES) {
+                    alert('O áudio é muito grande (máx. 5 MB). Grave novamente.');
+                    resetPreview();
+                    return;
+                  }
 
-                /* vérification taille max 5 Mo */
-                if (tempBlob.size > MAX_AUDIO_BYTES) {
-                  alert('O áudio é muito grande (máx. 5 MB). Grave novamente.');
+                  tempURL = URL.createObjectURL(tempBlob);
+                  renderPreview();
+                } catch (err) {
+                  console.error("Erreur lors de la création du blob:", err);
+                  alert("Erro ao processar o áudio gravado.");
                   resetPreview();
-                  return;
                 }
-
-                tempURL = URL.createObjectURL(tempBlob);
-                renderPreview();
-                audioBtn.textContent = '🎤 Gravar';     // remet l'icône micro
-              };
+                
+                audioBtn.textContent = '🎙️ Gravar';     // remet l'icône micro
+              });
 
               recorder.start();
               audioBtn.textContent = '⏹️ Parar';        // bouton stop
 
             } catch (err) {
+              console.error("Erreur d'accès au micro:", err);
               alert('Não foi possível acessar o microfone');
             }
 
           /* 2) Sinon (il enregistre) → on stoppe */
           } else if (recorder.state === 'recording') {
-            recorder.stop();
+            stopRecording();
           }
         });
 
@@ -415,12 +451,24 @@
           publishBtn.disabled = true;
           
           try {
-            // Générer une clé secrète
+            let audioBase64 = null;
+            if (tempBlob) {
+              try {
+                audioBase64 = await blobToBase64(tempBlob);
+              } catch (error) {
+                console.error("Erreur de conversion en base64:", error);
+                alert("Erro ao processar o áudio para envio.");
+                publishBtn.disabled = false;
+                return;
+              }
+            }
+            
+            // Préparer les données
             const payload = {
               artefact_id: artefactId,
               author: nameInput.value.trim() || 'Anônimo',
               comment,
-              audioBase64: tempBlob ? await blobToBase64(tempBlob) : null
+              audioBase64
             };
             
             const res = await fetch('/.netlify/functions/add-message', {
