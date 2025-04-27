@@ -123,10 +123,11 @@
       }
       
       function formatTime(sec) {
-  const m = Math.floor(sec / 60).toString().padStart(2,'0');
-  const s = (sec % 60).toString().padStart(2,'0');
-  return `${m}:${s}`;
-}
+        const m = Math.floor(sec / 60).toString().padStart(2,'0');
+        const s = (sec % 60).toString().padStart(2,'0');
+        return `${m}:${s}`;
+      }
+      
       async function deleteMessage(messageId, secretKey, artefactId, upperPanel, loadMoreBtn) {
         if (!confirm('Tem certeza que deseja excluir este comentário?')) return;
         
@@ -250,14 +251,14 @@
         
         const lower = document.createElement('div'); 
         lower.className='panel-lower';
-lower.innerHTML = `
-  <input type="text" placeholder="Seu nome (opcional)" />
-  <textarea placeholder="Adicionar um comentário…"></textarea>
-  <button data-publish>Publicar</button>
-  <button style="margin-left:.5rem" data-audio>🎙️ Gravar</button>
-  <span class="rec-time" style="margin-left:.5rem;font-size:.8rem;color:#ccc"></span>
-  <div class="preview" data-preview></div>
-`;
+        lower.innerHTML = `
+          <input type="text" placeholder="Seu nome (opcional)" />
+          <textarea placeholder="Adicionar um comentário…"></textarea>
+          <button data-publish>Publicar</button>
+          <button style="margin-left:.5rem" data-audio>🎙️ Gravar</button>
+          <span class="rec-time" style="margin-left:.5rem;font-size:.8rem;color:#ccc"></span>
+          <div class="preview" data-preview></div>
+        `;
         
         panel.appendChild(lower); 
         row.appendChild(panel); 
@@ -291,19 +292,31 @@ lower.innerHTML = `
           if (tempURL){ URL.revokeObjectURL(tempURL); tempURL=null; }
           tempBlob=null; preview.innerHTML='';
         }
+        
         function renderPreview(){
           preview.innerHTML=''; if(!tempURL) return;
           const audio=document.createElement('audio'); audio.controls=true; audio.src=tempURL;
           audio.addEventListener('loadedmetadata', () => {
-  const dur = formatTime(Math.round(audio.duration));
-  const label = document.createElement('span');
-  label.textContent = ` ${dur}`;
-  label.style.fontSize = '.8rem';
-  label.style.color = '#aaa';
-  preview.appendChild(label);
-});
+            const dur = formatTime(Math.round(audio.duration));
+            const label = document.createElement('span');
+            label.textContent = ` ${dur}`;
+            label.style.fontSize = '.8rem';
+            label.style.color = '#aaa';
+            preview.appendChild(label);
+          });
           const del=document.createElement('button'); del.textContent='🗑️'; del.title='Excluir a gravação';
           del.onclick=resetPreview; preview.append(audio,del);
+        }
+        
+        // Fonction pour arrêter l'enregistrement proprement
+        function stopRecording() {
+          if (recorder && recorder.state === 'recording') {
+            recorder.stop();
+            // On arrête aussi tous les tracks (libérer le micro)
+            if (recorder.stream) {
+              recorder.stream.getTracks().forEach(track => track.stop());
+            }
+          }
         }
 
         /* === LOAD EXISTING === */
@@ -318,128 +331,135 @@ lower.innerHTML = `
         });
 
         /* === RECORD === */
-audioBtn.addEventListener('click', async () => {
+        audioBtn.addEventListener('click', async () => {
+          /* 1) Si l'enregistreur est inactif → on démarre */
+          if (!recorder || recorder.state === 'inactive') {
+            try {
+              // Nouvelle demande d'autorisation à chaque fois
+              const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-  /* 1) Si l’enregistreur est inactif → on démarre */
-  if (!recorder || recorder.state === 'inactive') {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+              recorder = new MediaRecorder(stream);
+              // Stocker le stream pour pouvoir l'arrêter plus tard
+              recorder.stream = stream;
+              chunks = [];
 
-      recorder = new MediaRecorder(stream);
-      chunks   = [];
+              /* ---------- CHRONOMÈTRE : initialise ---------- */
+              startTime = Date.now();             // mémorise l'instant de départ
+              timerSpan.textContent = '00:00';    // affiche 0:00
+              timerId = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                timerSpan.textContent = formatTime(elapsed);
+              }, 1000);
 
-      /* ---------- CHRONOMÈTRE : initialise ---------- */
-      startTime       = Date.now();             // mémorise l’instant de départ
-      timerSpan.textContent = '00:00';          // affiche 0:00
-      timerId = setInterval(() => {
-        const elapsed = Math.floor((Date.now() - startTime) / 1000);
-        timerSpan.textContent = formatTime(elapsed);
-        /* option : stop auto après 300 s
-           if (elapsed >= 300) recorder.stop(); */
-      }, 1000);
-      /* ---------------------------------------------- */
+              recorder.ondataavailable = e => chunks.push(e.data);
 
-      recorder.ondataavailable = e => chunks.push(e.data);
+              recorder.onstop = () => {
+                /* –– stop chrono –– */
+                clearInterval(timerId);
+                timerId = null;
+                startTime = null;
+                timerSpan.textContent = '';       // efface l'affichage
 
-      recorder.onstop = () => {
-        /* –– stop chrono –– */
-        clearInterval(timerId);
-        timerId    = null;
-        startTime  = null;
-        timerSpan.textContent = '';             // efface l’affichage
+                /* –– arrêter tous les tracks audio –– */
+                if (recorder.stream) {
+                  recorder.stream.getTracks().forEach(track => track.stop());
+                }
 
-        /* –– génère l’aperçu –– */
-        tempBlob = new Blob(chunks, { type: 'audio/webm' });
+                /* –– génère l'aperçu –– */
+                tempBlob = new Blob(chunks, { type: 'audio/webm' });
 
-        /* ici on vérifie la taille max 5 Mo */
-        if (tempBlob.size > MAX_AUDIO_BYTES) {
-          alert('O áudio é muito grande (máx. 5 MB). Grave novamente.');
-          resetPreview();
-          return;
-        }
+                /* vérification taille max 5 Mo */
+                if (tempBlob.size > MAX_AUDIO_BYTES) {
+                  alert('O áudio é muito grande (máx. 5 MB). Grave novamente.');
+                  resetPreview();
+                  return;
+                }
 
-        tempURL  = URL.createObjectURL(tempBlob);
-        renderPreview();
-        audioBtn.textContent = '🎙️ Gravar';     // remet l’icône micro
-      };
+                tempURL = URL.createObjectURL(tempBlob);
+                renderPreview();
+                audioBtn.textContent = '🎙️ Gravar';     // remet l'icône micro
+              };
 
-      recorder.start();
-      audioBtn.textContent = '⏹️ Parar';        // bouton stop
+              recorder.start();
+              audioBtn.textContent = '⏹️ Parar';        // bouton stop
 
-    } catch (err) {
-      alert('Não foi possível acessar o microfone');
-    }
+            } catch (err) {
+              alert('Não foi possível acessar o microfone');
+            }
 
-  /* 2) Sinon (il enregistre) → on stoppe */
-  } else if (recorder.state === 'recording') {
-    recorder.stop();
-  }
-});
+          /* 2) Sinon (il enregistre) → on stoppe */
+          } else if (recorder.state === 'recording') {
+            recorder.stop();
+          }
+        });
 
-     
-/* === PUBLISH === */
-publishBtn.addEventListener('click', async () => {
-  // Obtenir la valeur du commentaire
-  const comment = textarea.value.trim();
-  
-  // Vérification si au moins le commentaire ou l'audio est présent
-  if (!comment && !tempBlob) {
-    alert('Adicione um comentário ou grave um áudio.');
-    return;
-  }
+        /* === PUBLISH === */
+        publishBtn.addEventListener('click', async () => {
+          // Arrêter l'enregistrement s'il est en cours
+          stopRecording();
+          
+          // Obtenir la valeur du commentaire
+          const comment = textarea.value.trim();
+          
+          // Vérification si au moins le commentaire ou l'audio est présent
+          if (!comment && !tempBlob) {
+            alert('Adicione um comentário ou grave um áudio.');
+            return;
+          }
 
-  if (tempBlob && tempBlob.size > MAX_AUDIO_BYTES) {
-    alert('O áudio é muito grande (máx. 5 MB). Grave novamente.');
-    return;
-  }
+          if (tempBlob && tempBlob.size > MAX_AUDIO_BYTES) {
+            alert('O áudio é muito grande (máx. 5 MB). Grave novamente.');
+            return;
+          }
 
-  publishBtn.disabled = true;
-  
-  try {
-    // Générer une clé secrète
-    const payload = {
-      artefact_id: artefactId,
-      author: nameInput.value.trim() || 'Anônimo',
-      comment,
-      audioBase64: tempBlob ? await blobToBase64(tempBlob) : null
-    };
-    
-    const res = await fetch('/.netlify/functions/add-message', {
-      method: 'POST', 
-      body: JSON.stringify(payload)
-    });
-    
-    const { success, id, delete_token } = await res.json();
+          publishBtn.disabled = true;
+          
+          try {
+            // Générer une clé secrète
+            const payload = {
+              artefact_id: artefactId,
+              author: nameInput.value.trim() || 'Anônimo',
+              comment,
+              audioBase64: tempBlob ? await blobToBase64(tempBlob) : null
+            };
+            
+            const res = await fetch('/.netlify/functions/add-message', {
+              method: 'POST', 
+              body: JSON.stringify(payload)
+            });
+            
+            const { success, id, delete_token } = await res.json();
 
-    if (success) {
-      const userMessages = JSON.parse(localStorage.getItem('userMessages') || '{}');
-      userMessages[id] = delete_token;
-      localStorage.setItem('userMessages', JSON.stringify(userMessages));
-      
-      textarea.value = '';
-      nameInput.value = '';
-      resetPreview();
-      
-      // Vider le cache pour cet artefact
-      Object.keys(messageCache).forEach(key => {
-        if (key.startsWith(artefactId)) delete messageCache[key];
-      });
-      
-      currentPage = 0;
-      loadMessages(artefactId, upper).then(hasMore => {
-        loadMoreBtn.style.display = hasMore ? 'block' : 'none';
-      });
-    } else { 
-      alert('Erro ao publicar'); 
-    }
-  } catch (error) {
-    console.error('Erro ao publicar:', error);
-    alert('Erro ao publicar: ' + error.message);
-  } finally {
-    publishBtn.disabled = false;
-  }
-});
+            if (success) {
+              const userMessages = JSON.parse(localStorage.getItem('userMessages') || '{}');
+              userMessages[id] = delete_token;
+              localStorage.setItem('userMessages', JSON.stringify(userMessages));
+              
+              textarea.value = '';
+              nameInput.value = '';
+              resetPreview();
+              
+              // Vider le cache pour cet artefact
+              Object.keys(messageCache).forEach(key => {
+                if (key.startsWith(artefactId)) delete messageCache[key];
+              });
+              
+              currentPage = 0;
+              loadMessages(artefactId, upper).then(hasMore => {
+                loadMoreBtn.style.display = hasMore ? 'block' : 'none';
+              });
+            } else { 
+              alert('Erro ao publicar'); 
+            }
+          } catch (error) {
+            console.error('Erro ao publicar:', error);
+            alert('Erro ao publicar: ' + error.message);
+          } finally {
+            publishBtn.disabled = false;
+          }
+        });
       }
+      
       // Fonction de chargement d'artefacts
       function loadArtefacts(count = 3) {
         if (isLoading || currentIndex >= images.length) return;
