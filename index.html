@@ -820,33 +820,42 @@ publishBtn.addEventListener('click', async () => {
       loadArtefacts();
 
       /* --- MAP singleton --- */
-let map, drawnMarkers = [];   // 💡 stocke tous les marqueurs affichés
-let currentArtefactId = null;
+<script>
+/* ----------------- variables globales ----------------- */
+let map, drawnMarkers = [];          // tous les marqueurs déjà enregistrés
+let currentMarker = null;            // marqueur qu’on est en train de placer
+let currentArtefactId = null;        // id de l’artefact sélectionné
 
+/* ----------------- ouvrir la modale + charger les points ----------------- */
 async function openMap(artefactId){
   currentArtefactId = artefactId;
   const modal = document.getElementById('map-modal');
   modal.style.display = 'flex';
 
+  /* bouton ✖️ */
+  document.getElementById('closeMap').onclick = closeMap;   // ok maintenant
+
+  /* ➊ carte Leaflet : init une seule fois */
   if(!map){
     map = L.map('leaflet-container').setView([-3,-63], 5);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
       attribution:'© OpenStreetMap'
     }).addTo(map);
 
+    /* clic → ajoute / déplace le marqueur temporaire */
     map.on('click', e=>{
       if(currentMarker) map.removeLayer(currentMarker);
       currentMarker = L.marker(e.latlng,{draggable:true}).addTo(map);
     });
   }else{
-    setTimeout(()=> map.invalidateSize(), 100);
+    setTimeout(()=> map.invalidateSize(), 100);             // fixe redimensionnement
   }
 
-  /* 1. Efface les marqueurs affichés précédemment */
+  /* ➋ effacer les marqueurs précédents */
   drawnMarkers.forEach(m => map.removeLayer(m));
   drawnMarkers = [];
 
-  /* 2. Récupère tous les points pour cet artefact */
+  /* ➌ récupérer les points existants  (URL corrigée 👇) */
   try{
     const res = await fetch('/.netlify/functions/get-locations?artefact='+artefactId);
     const points = res.ok ? await res.json() : [];
@@ -856,51 +865,48 @@ async function openMap(artefactId){
       drawnMarkers.push(m);
     });
 
-    /* 3. Centre la carte sur l’ensemble des points (si on en a) */
+    /* ➍ zoom sur l’ensemble ou vue par défaut */
     if(points.length){
       const group = L.featureGroup(drawnMarkers);
       map.fitBounds(group.getBounds().pad(0.25));
     }else{
-      map.setView([-3,-63],5);   // vue par défaut Amazonie
+      map.setView([-3,-63],5);
     }
   }catch(e){
     console.error(e);
   }
 }
 
-      /* ----------  ENREGISTRER LA POSITION  ---------- */
-  let currentMarker = null;   /* <--  variable dispo dans openMap ET ici */
+/* ----------------- fermer la modale ----------------- */
+function closeMap(){
+  document.getElementById('map-modal').style.display='none';
+  if(currentMarker){ map.removeLayer(currentMarker); currentMarker=null; }
+}
 
-  document.getElementById('saveLoc').onclick = async () => {
-    if (!currentMarker) {
-      alert('Clique na carta para escolher o ponto.');
-      return;
-    }
-    const { lat, lng } = currentMarker.getLatLng();
-    const author = prompt('Seu nome (opcional)', '') || 'Anônimo';
+/* ----------------- enregistrement du point ----------------- */
+document.getElementById('saveLoc').onclick = async () => {
+  if (!currentMarker) {
+    alert('Clique na carta para escolher o ponto.');
+    return;
+  }
+  const { lat, lng } = currentMarker.getLatLng();
+  const author = prompt('Seu nome (opcional)', '') || 'Anônimo';
 
-    /* 1) appel Netlify → set-location */
-    const res = await fetch('/.netlify/functions/set-location', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },   //  <<<<<<  MANQUAIT
-      body: JSON.stringify({
-        artefact_id: currentArtefactId,
-        lat,
-        lng,
-        author
-      })
-    });
+  const res = await fetch('/.netlify/functions/set-location', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ artefact_id: currentArtefactId, lat, lng, author })
+  });
 
-    /* 2) feedback + reset */
-    if (res.ok) {
-      alert('Localização salva!');
-      currentMarker = null;              // on efface le marqueur temporaire
-      closeMap();                        // ferme la modale
-    } else {
-      alert('Erro: ' + (await res.text()));
-    }
-  };
-      
-     </script>
+  if (res.ok) {
+    alert('Localização salva!');
+    currentMarker = null;
+    closeMap();
+  } else {
+    alert('Erro: ' + (await res.text()));
+  }
+};
+</script>
+
   </body>
 </html>
