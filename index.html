@@ -389,50 +389,50 @@
           }
         }
         
-        // Fonction pour arrêter l'enregistrement proprement
-        function stopRecording(reason = 'manual') {
-          if (recorder && recorder.state === 'recording') {
-            // Calculer et stocker la durée avant d'arrêter
-            if (startTime) {
-              recordingDuration = Math.floor((Date.now() - startTime) / 1000);
-            }
+// Fonction pour arrêter l'enregistrement proprement
+function stopRecording(reason = 'manual') {
+  if (recorder && recorder.state === 'recording') {
+    // Calculer et stocker la durée avant d'arrêter
+    if (startTime) {
+      recordingDuration = Math.floor((Date.now() - startTime) / 1000);
+    }
 
-            // Arrêter l'enregistrement
-            try {
-              recorder.stop();
-              
-              // Si arrêt à cause de la taille, informer l'utilisateur
-              if (reason === 'size_limit') {
-                setTimeout(() => {
-                  alert('Gravação parou automaticamente antes de atingir o limite de 5 MB.');
-                }, 500);
-              }
-            } catch (err) {
-              console.error("Erreur lors de l'arrêt de l'enregistrement:", err);
-            }
-            
-            // Arrêter et libérer les tracks audio
-            if (recorder.stream) {
-              try {
-                recorder.stream.getTracks().forEach(track => track.stop());
-              } catch (err) {
-                console.error("Erreur lors de l'arrêt des tracks audio:", err);
-              }
-            }
-            
-            // Arrêter les intervalles de vérification
-            if (timerId) {
-              clearInterval(timerId);
-              timerId = null;
-            }
-            
-            // Masquer les infos d'enregistrement
-            recInfo.style.display = 'none';
-            
-            // Réinitialiser l'affichage pour le prochain enregistrement
-            audioBtn.textContent = '🗣️ Gravar';     // remet l'icône micro
-          }
-        }
+    try {
+      // Arrêter l'enregistrement
+      recorder.stop();
+      
+      // Si arrêt à cause de la taille, informer l'utilisateur
+      if (reason === 'size_limit') {
+        setTimeout(() => {
+          alert('Gravação parou automaticamente antes de atingir o limite de 5 MB.');
+        }, 500);
+      }
+    } catch (err) {
+      console.error("Erreur lors de l'arrêt de l'enregistrement:", err);
+    }
+    
+    // Arrêter et libérer les tracks audio
+    if (recorder.stream) {
+      try {
+        recorder.stream.getTracks().forEach(track => track.stop());
+      } catch (err) {
+        console.error("Erreur lors de l'arrêt des tracks audio:", err);
+      }
+    }
+    
+    // Arrêter les intervalles de vérification
+    if (timerId) {
+      clearInterval(timerId);
+      timerId = null;
+    }
+    
+    // Masquer les infos d'enregistrement
+    recInfo.style.display = 'none';
+    
+    // Réinitialiser l'affichage pour le prochain enregistrement
+    audioBtn.textContent = '🗣️ Gravar';
+  }
+}
 
         /* === LOAD EXISTING === */
         loadMessages(artefactId, upper).then(hasMore => {
@@ -540,83 +540,114 @@
           }
         });
 
-        /* === PUBLISH === */
-        publishBtn.addEventListener('click', async () => {
-          // Arrêter l'enregistrement s'il est en cours
-          stopRecording();
-          
-          // Obtenir la valeur du commentaire
-          const comment = textarea.value.trim();
-          
-          // Vérification si au moins le commentaire ou l'audio est présent
-          if (!comment && !tempBlob) {
-            alert('Adicione um comentário ou grave um áudio.');
-            return;
-          }
+/* === PUBLISH === */
+publishBtn.addEventListener('click', async () => {
+  // Arrêter l'enregistrement s'il est en cours
+  stopRecording();
+  
+  // Obtenir la valeur du commentaire
+  const comment = textarea.value.trim();
+  
+  // Vérification si au moins le commentaire ou l'audio est présent
+  if (!comment && !tempBlob) {
+    alert('Adicione um comentário ou grave um áudio.');
+    return;
+  }
 
-          if (tempBlob && tempBlob.size > MAX_AUDIO_BYTES) {
-            alert('O áudio é muito grande (máx. 5 MB). Grave novamente.');
-            return;
-          }
+  // Vérification de la taille de l'audio
+  if (tempBlob) {
+    try {
+      // Vérifier une dernière fois la taille
+      if (tempBlob.size > MAX_AUDIO_BYTES) {
+        alert('O áudio é muito grande (máx. 5 MB). Grave novamente.');
+        return;
+      }
+      
+      // Vérifier si le blob est lisible/valide
+      if (tempBlob.size === 0) {
+        alert('O áudio gravado parece estar vazio ou corrompido. Grave novamente por favor.');
+        resetPreview();
+        return;
+      }
+    } catch (error) {
+      console.error("Erreur de vérification du blob:", error);
+      alert("Erro ao verificar o áudio. Grave novamente por favor.");
+      resetPreview();
+      return;
+    }
+  }
 
-          publishBtn.disabled = true;
-          
-          try {
-            let audioBase64 = null;
-            if (tempBlob) {
-              try {
-                audioBase64 = await blobToBase64(tempBlob);
-              } catch (error) {
-                console.error("Erreur de conversion en base64:", error);
-                alert("Erro ao processar o áudio para envio.");
-                publishBtn.disabled = false;
-                return;
-              }
-            }
-            
-            // Préparer les données
-            const payload = {
-              artefact_id: artefactId,
-              author: nameInput.value.trim() || 'Anônimo',
-              comment,
-              audioBase64
-            };
-            
-            const res = await fetch('/.netlify/functions/add-message', {
-              method: 'POST', 
-              body: JSON.stringify(payload)
-            });
-            
-            const { success, id, delete_token } = await res.json();
+  publishBtn.disabled = true;
+  
+  try {
+    let audioBase64 = null;
+    if (tempBlob) {
+      try {
+        audioBase64 = await blobToBase64(tempBlob);
+        
+        // Vérifier que la conversion base64 a fonctionné
+        if (!audioBase64) {
+          throw new Error("Falha na conversão do áudio para base64");
+        }
+      } catch (error) {
+        console.error("Erreur de conversion en base64:", error);
+        alert("Erro ao processar o áudio para envio.");
+        publishBtn.disabled = false;
+        return;
+      }
+    }
+    
+    // Préparer les données
+    const payload = {
+      artefact_id: artefactId,
+      author: nameInput.value.trim() || 'Anônimo',
+      comment,
+      audioBase64
+    };
+    
+    console.log("Envoi des données, taille audio:", audioBase64 ? (audioBase64.length * 0.75) + " bytes (approx)" : "pas d'audio"); 
+    
+    const res = await fetch('/.netlify/functions/add-message', {
+      method: 'POST', 
+      body: JSON.stringify(payload)
+    });
+    
+    // Vérifier si la réponse est OK avant de parser le JSON
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(`Erreur serveur (${res.status}): ${errorText}`);
+    }
+    
+    const { success, id, delete_token } = await res.json();
 
-            if (success) {
-              const userMessages = JSON.parse(localStorage.getItem('userMessages') || '{}');
-              userMessages[id] = delete_token;
-              localStorage.setItem('userMessages', JSON.stringify(userMessages));
-              
-              textarea.value = '';
-              nameInput.value = '';
-              resetPreview();
-              
-              // Vider le cache pour cet artefact
-              Object.keys(messageCache).forEach(key => {
-                if (key.startsWith(artefactId)) delete messageCache[key];
-              });
-              
-              currentPage = 0;
-              loadMessages(artefactId, upper).then(hasMore => {
-                loadMoreBtn.style.display = hasMore ? 'block' : 'none';
-              });
-            } else { 
-              alert('Erro ao publicar'); 
-            }
-          } catch (error) {
-            console.error('Erro ao publicar:', error);
-            alert('Erro ao publicar: ' + error.message);
-          } finally {
-            publishBtn.disabled = false;
-          }
-        });
+    if (success) {
+      const userMessages = JSON.parse(localStorage.getItem('userMessages') || '{}');
+      userMessages[id] = delete_token;
+      localStorage.setItem('userMessages', JSON.stringify(userMessages));
+      
+      textarea.value = '';
+      nameInput.value = '';
+      resetPreview();
+      
+      // Vider le cache pour cet artefact
+      Object.keys(messageCache).forEach(key => {
+        if (key.startsWith(artefactId)) delete messageCache[key];
+      });
+      
+      currentPage = 0;
+      loadMessages(artefactId, upper).then(hasMore => {
+        loadMoreBtn.style.display = hasMore ? 'block' : 'none';
+      });
+    } else { 
+      alert('Erro ao publicar'); 
+    }
+  } catch (error) {
+    console.error('Erro ao publicar:', error);
+    alert('Erro ao publicar: ' + error.message);
+  } finally {
+    publishBtn.disabled = false;
+  }
+});
       }
       
       // Fonction de chargement d'artefacts
