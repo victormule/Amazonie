@@ -12,7 +12,7 @@ exports.handler = async (event) => {
       return { statusCode: 400, body: 'missing fields' };
 
     // upsert : insert ou remplace
-    const { error } = await supabase.from('locations').upsert({
+    const { error } = await supabase.from('locations').insert({
       artefact_id, lat, lng, author
     });
 
