@@ -95,6 +95,10 @@ textarea {
   min-height: 60px;
   max-height: 200px;   /* ← nouvelle ligne */
   resize: vertical;
+  overflow-x: hidden;          /* pas de scroll horizontal */
+  white-space: pre-wrap;       /* conserve les sauts de ligne mais wrappe */
+  word-break: break-word;      /* coupe les mots / URLs trop longs */
+  overflow-wrap: anywhere;     /* comportement moderne équivalent */
 }
 .char-count {
   font-size: .75rem;
@@ -103,6 +107,12 @@ textarea {
   margin-top: -6px;     /* remonte un peu sous le textarea */
   margin-bottom: .5rem;
 }
+
+      .note {
+  word-break: break-word;      /* coupe mots/URLs dans la bulle affichée */
+  overflow-wrap: anywhere;
+}
+
       @media (max-width:768px){ .artefact{flex-direction:column;} .artefact img{width:100%;} }
     </style>
   </head>
