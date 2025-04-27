@@ -300,7 +300,7 @@ textarea {
         lower.innerHTML = `
 <input type="text" placeholder="Seu nome (opcional)" />
 <!-- maxlength + id pour le JS -->
-<textarea id="comment-box" placeholder="Adicionar um comentário…" maxlength="500"></textarea>
+<textarea placeholder="Adicionar um comentário…" maxlength="500"></textarea>
 <!-- compteur de caractères -->
 <div class="char-count">0 / 500</div>
           <button data-publish>Publicar</button>
@@ -315,13 +315,6 @@ textarea {
         panel.appendChild(lower); 
         row.appendChild(panel); 
         gallery.appendChild(row);
-
-        const charCount = lower.querySelector('.char-count');
-
-/* compteur temps réel */
-textarea.addEventListener('input', () => {
-  charCount.textContent = `${textarea.value.length} / 500`;
-});
         
         // Bouton pour charger plus de commentaires
         const loadMoreBtn = document.createElement('button');
@@ -336,7 +329,13 @@ textarea.addEventListener('input', () => {
         const publishBtn= lower.querySelector('[data-publish]');
         const audioBtn  = lower.querySelector('[data-audio]');
         const preview   = lower.querySelector('[data-preview]');
+        const charCount = lower.querySelector('.char-count');
 
+/* compteur temps réel */
+charCount.textContent = `${textarea.value.length} / 500`;
+textarea.addEventListener('input', () => {
+  charCount.textContent = `${textarea.value.length} / 500`;
+});
         const recInfo = lower.querySelector('.rec-info');
         const timerSpan = lower.querySelector('.rec-time');
         const fileSize = lower.querySelector('.file-size');
