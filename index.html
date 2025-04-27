@@ -823,8 +823,13 @@ publishBtn.addEventListener('click', async () => {
       // Charger les premiers artefacts
       loadArtefacts();
 
-      /* --- MAP singleton --- */
-
+    
+/* Délégation de clic : fonctionne même pour les .loc-btn créés dynamiquement */
+document.addEventListener('click', e => {
+  const btn = e.target.closest('.loc-btn');
+  if (btn) openMap(btn.dataset.artefact);
+});
+      
 /* ----------------- variables globales ----------------- */
 let map, drawnMarkers = [];          // tous les marqueurs déjà enregistrés
 let currentMarker = null;            // marqueur qu’on est en train de placer
