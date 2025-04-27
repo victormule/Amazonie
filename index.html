@@ -132,7 +132,7 @@ textarea {
       const WARNING_THRESHOLD = 0.8 * MAX_AUDIO_BYTES;
       const CRITICAL_THRESHOLD = 0.95 * MAX_AUDIO_BYTES;
       // Intervalle pour récupérer des données pendant l'enregistrement (200ms)
-      const RECORDING_TIMESLICE = 200;
+      const RECORDING_TIMESLICE = 1000;
 
       const images = [
         { src: "assets/image1.png", alt: "Peitoral de penas e contas" },
@@ -518,13 +518,23 @@ function stopRecording(reason = 'manual') {
               }, 1000);
 
               // Événement pour récupérer les données pendant l'enregistrement
-              recorder.addEventListener('dataavailable', e => {
-                if (e.data && e.data.size > 0) {
-                  chunks.push(e.data);
-                  // Mise à jour de la taille à chaque nouveau morceau
-                  updateFileSizeDisplay();
-                }
-              });
+recorder.addEventListener('dataavailable', e => {
+  if (!e.data || !e.data.size) return;
+  chunks.push(e.data);
+
+  /* ---------- compteur taille sans new Blob() ---------- */
+  currentSize += e.data.size;
+  fileSize.textContent = `(${formatFileSize(currentSize)} / 4 MB)`;
+
+  if (currentSize >= CRITICAL_THRESHOLD) {
+    fileSize.className = 'size-critical';
+    stopRecording('size_limit');
+  } else if (currentSize >= WARNING_THRESHOLD) {
+    fileSize.className = 'size-warning';
+  } else {
+    fileSize.className = '';
+  }
+});
 
               recorder.addEventListener('stop', () => {
                 // Arrêter le chronomètre
