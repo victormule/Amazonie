@@ -906,6 +906,22 @@ document.getElementById('saveLoc').onclick = async () => {
     alert('Erro: ' + (await res.text()));
   }
 };
+      images.forEach(({ src, alt }) => {
+  const div  = document.createElement("div");      // conteneur
+  const img  = document.createElement("img");
+  const btn  = document.createElement("button");
+
+  img.src = src;
+  img.alt = alt;
+  img.loading = "lazy";
+
+  btn.textContent = "Localisation";
+  btn.className   = "loc-btn";
+  btn.dataset.artefact = src.replace("assets/", ""); // => image1.png
+
+  div.append(img, btn);
+  gallery.appendChild(div);
+});
 </script>
 
   </body>
