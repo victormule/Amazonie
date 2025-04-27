@@ -362,7 +362,7 @@
         function updateFileSizeDisplay() {
           // Créer un blob temporaire avec tous les chunks actuels pour mesurer la taille
           if (chunks.length === 0) {
-            fileSize.textContent = `(0 B / 5 MB)`;
+            fileSize.textContent = `(0 B / 4 MB)`;
             return;
           }
           
@@ -371,7 +371,7 @@
             currentSize = currentBlob.size;
             
             // Mettre à jour l'affichage
-            fileSize.textContent = `(${formatFileSize(currentSize)} / 5 MB)`;
+            fileSize.textContent = `(${formatFileSize(currentSize)} / 4 MB)`;
             
             // Appliquer des couleurs d'avertissement en fonction de la taille
             if (currentSize > CRITICAL_THRESHOLD) {
@@ -404,7 +404,7 @@ function stopRecording(reason = 'manual') {
       // Si arrêt à cause de la taille, informer l'utilisateur
       if (reason === 'size_limit') {
         setTimeout(() => {
-          alert('Gravação parou automaticamente antes de atingir o limite de 5 MB.');
+          alert('Gravação parou automaticamente antes de atingir o limite de 4 MB.');
         }, 500);
       }
     } catch (err) {
@@ -459,7 +459,7 @@ function stopRecording(reason = 'manual') {
               // Afficher les infos d'enregistrement et initialiser
               recInfo.style.display = 'flex';
               timerSpan.textContent = '00:00';
-              fileSize.textContent = '(0 B / 5 MB)';
+              fileSize.textContent = '(0 B / 4 MB)';
               fileSize.className = '';
               
               // Nouvelle demande d'autorisation à chaque fois
@@ -510,7 +510,7 @@ function stopRecording(reason = 'manual') {
                   
                   /* vérification finale taille max 5 Mo */
                   if (tempBlob.size > MAX_AUDIO_BYTES) {
-                    alert('O áudio é muito grande (máx. 5 MB). Grave novamente.');
+                    alert('O áudio é muito grande (máx. 4 MB). Grave novamente.');
                     resetPreview();
                     return;
                   }
@@ -559,7 +559,7 @@ publishBtn.addEventListener('click', async () => {
     try {
       // Vérifier une dernière fois la taille
       if (tempBlob.size > MAX_AUDIO_BYTES) {
-        alert('O áudio é muito grande (máx. 5 MB). Grave novamente.');
+        alert('O áudio é muito grande (máx. 4 MB). Grave novamente.');
         return;
       }
       
