@@ -118,9 +118,28 @@ textarea {
   word-break: break-word;      /* coupe mots/URLs dans la bulle affichée */
   overflow-wrap: anywhere;
 }
+/* Boutons sur la carte */
+.map-btn{
+  position:absolute;
+  bottom:10px;
+  padding:.4rem .8rem;
+  background:var(--accent);
+  border:none;
+  color:#000;
+  border-radius:4px;
+  cursor:pointer;
+  font-size:1rem;
+  z-index:1100;           /* ← plus haut que .leaflet-container (0) et que les contrôles Leaflet (1000) */
+}
+.map-btn:hover{filter:brightness(1.1);}
+#saveLoc { left:10px;   } /* coin bas-gauche  */
+#closeMap{ right:10px;  } /* coin bas-droit   */
 
+      
       @media (max-width:768px){ .artefact{flex-direction:column;} .artefact img{width:100%;} }
     </style>
+
+    
   </head>
   <body>
     <h1>Quai Branly – <span style="color:var(--accent)">Memória & Alma</span></h1>
@@ -784,18 +803,20 @@ let map, currentMarker, currentArtefactId;
 /* montrer la modale et initialiser la carte */
 function openMap(artefactId){
   currentArtefactId = artefactId;
-  document.getElementById('map-modal').style.display='flex';
+  const modal = document.getElementById('map-modal');
+  modal.style.display='flex';
 
   if(!map){
     map = L.map('leaflet-container').setView([-3,-63],5);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-      attribution:'© OSM'
-    }).addTo(map);
-
-    map.on('click',e=>{
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+      {attribution:'© OSM'}).addTo(map);
+    map.on('click', e=>{
       if(currentMarker) map.removeLayer(currentMarker);
       currentMarker = L.marker(e.latlng,{draggable:true}).addTo(map);
     });
+  }else{
+    /* important quand on change display:none -> flex */
+    setTimeout(()=> map.invalidateSize(), 100);
   }
 }
 
@@ -837,10 +858,8 @@ document.getElementById('saveLoc').onclick=async ()=>{
   <div style="width:90%;max-width:600px;height:80vh;position:relative;
               background:#222;border:1px solid #555;">
       <div id="leaflet-container" style="height:100%;"></div>
-      <button id="saveLoc" style="
-        position:absolute;bottom:10px;left:10px;">💾 Salvar</button>
-      <button id="closeMap" style="
-        position:absolute;bottom:10px;right:10px;">✖️</button>
+<button id="saveLoc" class="map-btn">💾 Salvar</button>
+<button id="closeMap" class="map-btn">✖️</button>
   </div>
 </div>
   </body>
