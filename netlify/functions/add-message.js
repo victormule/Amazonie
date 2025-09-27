@@ -1,115 +1,141 @@
-const { createClient } = require('@supabase/supabase-js')
+const { createClient } = require('@supabase/supabase-js');
 
 /* Connexion Supabase (variables d'environnement Netlify) */
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY        // rôle service → insert / delete
-)
+  process.env.SUPABASE_SERVICE_KEY // service_role (server only)
+);
 
-/* Tailles maximales */
-const MAX_AUDIO_BYTES = 6 * 1024 * 1024   // 6 Mo
-const MAX_IMAGE_BYTES = 800 * 1024        // 800 Ko
+/* Constantes */
+const MAX_AUDIO_BYTES = 6 * 1024 * 1024; // 6 Mo
+const MAX_IMAGE_BYTES = 800 * 1024;      // 800 Ko
+const HEADERS = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*'
+};
 
+/* Preflight CORS */
 exports.handler = async (event) => {
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 204,
+      headers: {
+        ...HEADERS,
+        'Access-Control-Allow-Headers': 'content-type',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS'
+      },
+      body: ''
+    };
+  }
+
   try {
-    const { artefact_id, author, comment, audioBase64, imageBase64 } = JSON.parse(event.body)
-    let audio_path = null
-    let image_path = null
+    /* ---------- 0) Parse & validation d’entrée ---------- */
+    let payload = {};
+    try {
+      payload = JSON.parse(event.body || '{}');
+    } catch {
+      return { statusCode: 400, headers: HEADERS, body: JSON.stringify({ error: 'Bad JSON' }) };
+    }
 
-    /* -------- 1. Vérifier / stocker l'audio éventuel -------- */
+    let { artefact_id, author, comment, audioBase64, imageBase64 } = payload;
+
+    artefact_id = (artefact_id || '').toString().trim();
+    author      = (author || '').toString().trim();
+    comment     = (comment || '').toString().trim();
+
+    if (!artefact_id) {
+      return { statusCode: 400, headers: HEADERS, body: JSON.stringify({ error: 'artefact_id is required' }) };
+    }
+
+    // autoriser publication avec au moins un des trois
+    if (!comment && !audioBase64 && !imageBase64) {
+      return { statusCode: 400, headers: HEADERS, body: JSON.stringify({ error: 'nothing to publish' }) };
+    }
+
+    // petites limites côté serveur
+    if (author.length > 50)   author  = author.slice(0, 50);
+    if (comment.length > 1000) comment = comment.slice(0, 1000);
+
+    let audio_path = null;
+    let image_path = null;
+
+    /* ---------- 1) Upload AUDIO (optionnel) ---------- */
     if (audioBase64) {
-      const rawBytes = Buffer.byteLength(audioBase64, 'base64')
+      // côté front tu envoies du base64 "pur" (pas dataURL) → OK
+      const rawBytes = Buffer.byteLength(audioBase64, 'base64');
       if (rawBytes > MAX_AUDIO_BYTES) {
-        return { statusCode: 413, body: 'audio too large' }
+        return { statusCode: 413, headers: HEADERS, body: JSON.stringify({ error: 'audio too large' }) };
       }
 
-      try {
-        const fileName = `${artefact_id}/aud-${Date.now()}.webm`
-        const audioBuffer = Buffer.from(audioBase64, 'base64')
-
-        if (!audioBuffer || audioBuffer.length === 0) {
-          return { statusCode: 400, body: 'invalid audio data' }
-        }
-
-        const { error: uploadErr } = await supabase
-          .storage.from('recordings')
-          .upload(fileName, audioBuffer, {
-            contentType: 'audio/webm'
-          })
-
-        if (uploadErr) {
-          console.error('Upload audio error:', uploadErr)
-          return { statusCode: 500, body: JSON.stringify({ error: uploadErr.message }) }
-        }
-        audio_path = fileName
-      } catch (uploadError) {
-        console.error('Error during audio upload:', uploadError)
-        return { statusCode: 500, body: JSON.stringify({ error: uploadError.message }) }
+      const audioBuffer = Buffer.from(audioBase64, 'base64');
+      if (!audioBuffer.length) {
+        return { statusCode: 400, headers: HEADERS, body: JSON.stringify({ error: 'invalid audio data' }) };
       }
+
+      const fileName = `${artefact_id}/aud-${Date.now()}.webm`;
+      const { error: uploadErr } = await supabase
+        .storage.from('recordings')
+        .upload(fileName, audioBuffer, { contentType: 'audio/webm' });
+
+      if (uploadErr) {
+        console.error('Upload audio error:', uploadErr);
+        return { statusCode: 500, headers: HEADERS, body: JSON.stringify({ error: uploadErr.message }) };
+      }
+      audio_path = fileName;
     }
 
-    /* -------- 2. Vérifier / stocker l’image éventuelle -------- */
+    /* ---------- 2) Upload IMAGE (optionnel) ---------- */
     if (imageBase64) {
-      try {
-        // dataURL ou juste base64 : on normalise
-        const match = imageBase64.match(/^data:(image\/(png|jpe?g|webp));base64,(.+)$/i)
-        if (!match) {
-          return { statusCode: 415, body: 'unsupported image format' }
-        }
-        const mime = match[1]
-        const ext = mime.includes('jpeg') || mime.includes('jpg') ? 'jpg'
-                  : mime.includes('webp') ? 'webp'
-                  : 'png'
-        const b64 = match[3]
-        const imgBuffer = Buffer.from(b64, 'base64')
-
-        if (imgBuffer.length > MAX_IMAGE_BYTES) {
-          return { statusCode: 413, body: 'image too large' }
-        }
-
-        const fileName = `${artefact_id}/img-${Date.now()}.${ext}`
-
-        const { error: uploadErr } = await supabase
-          .storage.from('comment-images')
-          .upload(fileName, imgBuffer, {
-            contentType: mime
-          })
-
-        if (uploadErr) {
-          console.error('Upload image error:', uploadErr)
-          return { statusCode: 500, body: JSON.stringify({ error: uploadErr.message }) }
-        }
-        image_path = fileName
-      } catch (uploadError) {
-        console.error('Error during image upload:', uploadError)
-        return { statusCode: 500, body: JSON.stringify({ error: uploadError.message }) }
+      // attendu: dataURL "data:image/png|jpeg|webp;base64,...."
+      const m = imageBase64.match(/^data:(image\/(png|jpe?g|webp));base64,(.+)$/i);
+      if (!m) {
+        return { statusCode: 415, headers: HEADERS, body: JSON.stringify({ error: 'unsupported image format' }) };
       }
+      const mime = m[1];
+      const ext  = mime.includes('jpeg') || mime.includes('jpg') ? 'jpg'
+                 : mime.includes('webp') ? 'webp'
+                 : 'png';
+      const b64  = m[3];
+
+      const imgBuffer = Buffer.from(b64, 'base64');
+      if (imgBuffer.length > MAX_IMAGE_BYTES) {
+        return { statusCode: 413, headers: HEADERS, body: JSON.stringify({ error: 'image too large' }) };
+      }
+
+      const fileName = `${artefact_id}/img-${Date.now()}.${ext}`;
+      const { error: imgErr } = await supabase
+        .storage.from('comment-images')
+        .upload(fileName, imgBuffer, { contentType: mime });
+
+      if (imgErr) {
+        console.error('Upload image error:', imgErr);
+        return { statusCode: 500, headers: HEADERS, body: JSON.stringify({ error: imgErr.message }) };
+      }
+      image_path = fileName;
     }
 
-    /* -------- 3. Insérer le message -------- */
+    /* ---------- 3) Insert DB ---------- */
     const { data, error: insertErr } = await supabase
       .from('messages')
       .insert({ artefact_id, author, comment, audio_path, image_path })
       .select('id, delete_token')
-      .single()
+      .single();
 
     if (insertErr) {
-      console.error('DB insert error:', insertErr)
-      return { statusCode: 500, body: insertErr.message }
+      console.error('DB insert error:', insertErr);
+      return { statusCode: 500, headers: HEADERS, body: JSON.stringify({ error: insertErr.message }) };
     }
 
-    /* -------- 4. Réponse OK -------- */
+    /* ---------- 4) Réponse ---------- */
     return {
       statusCode: 200,
-      body: JSON.stringify({
-        success: true,
-        id: data.id,
-        delete_token: data.delete_token
-      })
-    }
+      headers: HEADERS,
+      body: JSON.stringify({ success: true, id: data.id, delete_token: data.delete_token })
+    };
+
   } catch (e) {
-    console.error('Error processing request:', e)
-    return { statusCode: 400, body: 'Bad request' }
+    console.error('Error processing request:', e);
+    return { statusCode: 500, headers: HEADERS, body: JSON.stringify({ error: e.message || 'server error' }) };
   }
-}
+};
 
