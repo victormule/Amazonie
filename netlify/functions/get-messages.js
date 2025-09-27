@@ -20,3 +20,6 @@ exports.handler = async (event) => {
   if (error) return { statusCode: 500, body: error.message };
   return { statusCode: 200, body: JSON.stringify(data) };
 }
+
+console.log('SUPABASE_URL =', process.env.SUPABASE_URL);
+console.log('ANON length =', (process.env.SUPABASE_ANON_KEY || '').length);
