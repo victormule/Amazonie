@@ -1,6 +1,6 @@
 /* =========================================================
    Quai Branly – Memória & Alma
-   App JS (frontend) — avec logs
+   App JS (frontend) — avec logs et correctifs imageInput._blob
    ========================================================= */
 
 /* ======= CONFIG ======= */
@@ -173,7 +173,8 @@ async function deleteMessage(messageId, secretKey, artefactId, upperPanel, loadM
 
 function renderArtefact({ src, alt }) {
   const artefactId = src.split("/").pop();
-  console.log("[artefact] render", artefactId);
+  const LOG = (...args) => console.log(`[${artefactId}]`, ...args);
+  LOG("render");
 
   const row = document.createElement("div");
   row.className = "artefact";
@@ -240,9 +241,6 @@ function renderArtefact({ src, alt }) {
   let tempBlob = null, tempURL = null;
   let startTime = null, timerId = null, recordingDuration = 0, currentSize = 0;
 
-  // Image
-  let tempImageBlob = null, tempImageURL = null;
-
   /* ---- UI : compteur ---- */
   charCount.textContent = `${textarea.value.length} / 1000`;
   textarea.addEventListener("input", () => {
@@ -278,47 +276,16 @@ function renderArtefact({ src, alt }) {
     const del = document.createElement("button");
     del.textContent = "🗑️";
     del.title = "Excluir a gravação";
-    del.onclick = () => { console.log("[audio] remove preview"); resetAudioPreview(); };
+    del.onclick = () => { LOG("[audio] remove preview"); resetAudioPreview(); };
 
     wrap.append(audio, dur, del);
     preview.appendChild(wrap);
   }
 
-  /* ---- Préviews : image ---- */
-  function resetImagePreview() {
-    if (tempImageURL) URL.revokeObjectURL(tempImageURL);
-    tempImageURL = null;
-    tempImageBlob = null;
-    const box = preview.querySelector(".img-preview");
-    if (box) box.remove();
-  }
-  function renderImagePreview() {
-    resetImagePreview();
-    if (!tempImageBlob) return;
-    tempImageURL = URL.createObjectURL(tempImageBlob);
-
-    const wrap = document.createElement("div");
-    wrap.className = "img-preview";
-
-    const img = document.createElement("img");
-    img.src = tempImageURL;
-    img.style.maxWidth = "160px";
-    img.style.maxHeight = "120px";
-    img.style.objectFit = "contain";
-    img.style.border = "1px solid var(--border)";
-    img.style.borderRadius = "4px";
-
-    const del = document.createElement("button");
-    del.textContent = "🗑️";
-    del.title = "Excluir a imagem";
-    del.onclick = () => { console.log("[image] remove preview"); resetImagePreview(); };
-
-    wrap.append(img, del);
-    preview.appendChild(wrap);
-  }
-
+  /* ---- Préviews : image (corrigé) ---- */
   imageBtn.addEventListener("click", () => imageInput.click());
-  imageInput.addEventListener("change", async () => {
+
+  imageInput.addEventListener("change", () => {
     const f = imageInput.files && imageInput.files[0];
     console.log("[image] change fired. file =", f);
     if (!f) return;
@@ -335,8 +302,44 @@ function renderArtefact({ src, alt }) {
       imageInput.value = "";
       return;
     }
-    tempImageBlob = f;
-    renderImagePreview();
+
+    // ✅ On stocke le blob et l’URL *sur l’input*, pour éviter tout problème de scope
+    imageInput._blob = f;
+    if (imageInput._url) URL.revokeObjectURL(imageInput._url);
+    imageInput._url = URL.createObjectURL(f);
+
+    // Aperçu
+    const old = preview.querySelector(".img-preview");
+    if (old) old.remove();
+    const wrap = document.createElement("div");
+    wrap.className = "img-preview";
+    wrap.style.display = "flex";
+    wrap.style.alignItems = "center";
+    wrap.style.gap = ".5rem";
+
+    const img = document.createElement("img");
+    img.src = imageInput._url;
+    img.style.maxWidth = "160px";
+    img.style.maxHeight = "120px";
+    img.style.objectFit = "contain";
+    img.style.border = "1px solid var(--border)";
+    img.style.borderRadius = "4px";
+
+    const del = document.createElement("button");
+    del.textContent = "🗑️";
+    del.title = "Excluir a imagem";
+    del.onclick = () => {
+      if (imageInput._url) URL.revokeObjectURL(imageInput._url);
+      imageInput._url = null;
+      imageInput._blob = null;
+      const box = preview.querySelector(".img-preview");
+      if (box) box.remove();
+      imageInput.value = "";
+      console.log("[image] preview removed");
+    };
+
+    wrap.append(img, del);
+    preview.appendChild(wrap);
   });
 
   /* ---- Audio : enregistrement ---- */
@@ -373,8 +376,13 @@ function renderArtefact({ src, alt }) {
   audioBtn.addEventListener("click", async () => {
     if (!recorder || recorder.state === "inactive") {
       try {
-        resetAudioPreview();
+        // reset audio preview
+        if (tempURL) { URL.revokeObjectURL(tempURL); tempURL = null; }
+        tempBlob = null;
         chunks = []; currentSize = 0; recordingDuration = 0;
+        const old = preview.querySelector(".audio-preview");
+        if (old) old.remove();
+
         recInfo.style.display = "flex";
         timerSpan.textContent = "00:00";
         fileSize.textContent = "(0 B / 4 MB)";
@@ -414,7 +422,8 @@ function renderArtefact({ src, alt }) {
           tempBlob = new Blob(chunks, { type: "audio/webm" });
           if (tempBlob.size > MAX_AUDIO_BYTES) {
             alert("O áudio é muito grande (máx. 4 MB).");
-            resetAudioPreview();
+            if (tempURL) { URL.revokeObjectURL(tempURL); tempURL = null; }
+            tempBlob = null;
             return;
           }
           tempURL = URL.createObjectURL(tempBlob);
@@ -451,16 +460,11 @@ function renderArtefact({ src, alt }) {
 
     const comment = textarea.value.trim();
 
-    // audio -> base64 pur
+    // AUDIO → base64 pur
     let audioBase64 = null;
     if (tempBlob) {
-      if (tempBlob.size === 0) {
-        alert("Áudio vazio / corrompido. Grave novamente.");
-        publishBtn.disabled = false;
-        return;
-      }
-      if (tempBlob.size > MAX_AUDIO_BYTES) {
-        alert("O áudio é muito grande (máx. 4 MB).");
+      if (tempBlob.size === 0 || tempBlob.size > MAX_AUDIO_BYTES) {
+        alert("Áudio inválido (vazio ou > 4 MB).");
         publishBtn.disabled = false;
         return;
       }
@@ -468,11 +472,12 @@ function renderArtefact({ src, alt }) {
       console.log("[publish] audioBase64.len =", audioBase64.length);
     }
 
-    // image -> dataURL
+    // ✅ IMAGE → lit depuis l’input du panneau courant
     let imageBase64 = null;
-    if (tempImageBlob) {
-      const b64 = await blobToBase64(tempImageBlob);
-      imageBase64 = `data:${tempImageBlob.type};base64,${b64}`;
+    const picked = imageInput._blob;
+    if (picked) {
+      const b64 = await blobToBase64(picked);
+      imageBase64 = `data:${picked.type};base64,${b64}`;
       console.log("[publish] imageBase64.len =", imageBase64.length);
       console.log("[publish] imageBase64 prefix =", imageBase64.slice(0, 30));
     }
@@ -512,7 +517,7 @@ function renderArtefact({ src, alt }) {
       const { success, id, delete_token } = json;
       if (!success) throw new Error("Réponse invalide");
 
-      // Mémoriser le token de suppression
+      // token suppression
       const userMessages = JSON.parse(localStorage.getItem("userMessages") || "{}");
       userMessages[id] = delete_token;
       localStorage.setItem("userMessages", JSON.stringify(userMessages));
@@ -520,8 +525,19 @@ function renderArtefact({ src, alt }) {
       // Reset UI
       textarea.value = "";
       nameInput.value = "";
-      resetAudioPreview();
-      resetImagePreview();
+
+      // reset audio preview
+      if (tempURL) URL.revokeObjectURL(tempURL);
+      tempURL = null; tempBlob = null;
+      const aPrev = preview.querySelector(".audio-preview");
+      if (aPrev) aPrev.remove();
+
+      // reset image preview + input
+      if (imageInput._url) URL.revokeObjectURL(imageInput._url);
+      imageInput._url = null;
+      imageInput._blob = null;
+      const iPrev = preview.querySelector(".img-preview");
+      if (iPrev) iPrev.remove();
       imageInput.value = "";
 
       // Invalider le cache & recharger
