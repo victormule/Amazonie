@@ -185,6 +185,18 @@ textarea {
   position: relative;
   z-index: 1000;
 }
+      .note .comment-media {
+  margin: .25rem 0 .5rem;
+}
+.note .comment-media img {
+  max-width: 100%;
+  max-height: 220px;      /* garde le bloc harmonieux */
+  display: block;
+  object-fit: contain;    /* pas d’étirement */
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}
+
       
       @media (max-width:768px){ .artefact{flex-direction:column;} .artefact img{width:100%;} }
     </style>
@@ -357,7 +369,16 @@ textarea {
             
             div.appendChild(audioContainer);
           }
-          
+          if (m.image_path) {
+  const imgWrap = document.createElement('div');
+  imgWrap.className = 'comment-media';
+  const img = document.createElement('img');
+  img.src = `${SUPABASE_URL}/storage/v1/object/public/comment-images/${m.image_path}`;
+  img.alt = 'imagem do comentário';
+  imgWrap.appendChild(img);
+  div.appendChild(imgWrap);
+}
+
           // Vérifier si ce message appartient à l'utilisateur actuel
           if (userMessages[m.id]) {
             const deleteBtn = document.createElement('button');
@@ -401,6 +422,10 @@ textarea {
         img.src = src;
         img.loading = 'lazy'; // Utilisation de l'attribut loading natif
         
+        const imageBtn  = lower.querySelector('[data-image]');
+        const imageInput= lower.querySelector('[data-image-input]');
+
+        
         row.appendChild(img);
         const panel = document.createElement('div'); 
         panel.className='panel';
@@ -418,6 +443,9 @@ textarea {
 <div class="char-count">0 / 1000</div>
           <button data-publish>Publicar</button>
           <button style="margin-left:.5rem" data-audio>🗣️ Gravar</button>
+          <button style="margin-left:.5rem" data-image>🖼️ Importar imagem</button>
+<input type="file" accept="image/png,image/jpeg,image/webp" data-image-input style="display:none" />
+
          <button style="margin-left:.5rem"
         class="loc-btn"
         data-artefact="${artefactId}">📍 Localizar</button>
@@ -472,6 +500,66 @@ textarea.addEventListener('input', () => {
 
         // Cacher l'élément rec-info au début
         recInfo.style.display = 'none';
+// Réinitialiser l’image temporaire
+function resetImagePreview() {
+  if (tempImageURL) URL.revokeObjectURL(tempImageURL);
+  tempImageURL = null;
+  tempImageBlob = null;
+  // on enlève seulement l’aperçu image si présent
+  const box = preview.querySelector('.img-preview');
+  if (box) box.remove();
+}
+
+// rendre l’aperçu image
+function renderImagePreview() {
+  // enlève ancien si relance
+  resetImagePreview();
+  if (!tempImageBlob) return;
+
+  tempImageURL = URL.createObjectURL(tempImageBlob);
+  const wrap = document.createElement('div');
+  wrap.className = 'img-preview';
+  wrap.style.display = 'flex';
+  wrap.style.alignItems = 'center';
+  wrap.style.gap = '.5rem';
+  const img = document.createElement('img');
+  img.src = tempImageURL;
+  img.style.maxWidth = '160px';
+  img.style.maxHeight = '120px';
+  img.style.objectFit = 'contain';
+  img.style.border = '1px solid var(--border)';
+  img.style.borderRadius = '4px';
+
+  const del = document.createElement('button');
+  del.textContent = '🗑️';
+  del.title = 'Excluir a imagem';
+  del.onclick = resetImagePreview;
+
+  wrap.append(img, del);
+  preview.appendChild(wrap);
+}
+
+// cliquer sur le bouton → ouvrir le sélecteur
+imageBtn.addEventListener('click', () => imageInput.click());
+
+// quand l’utilisateur choisit un fichier
+imageInput.addEventListener('change', () => {
+  const f = imageInput.files && imageInput.files[0];
+  if (!f) return;
+  if (!/^image\/(png|jpe?g|webp)$/i.test(f.type)) {
+    alert('Formato não suportado. Use PNG, JPG ou WebP.');
+    imageInput.value = '';
+    return;
+  }
+  const MAX_IMAGE_BYTES = 800 * 1024; // 800KB
+  if (f.size > MAX_IMAGE_BYTES) {
+    alert('Imagem muito pesada (máx. 800KB). Comprima ou escolha outra.');
+    imageInput.value = '';
+    return;
+  }
+  tempImageBlob = f;
+  renderImagePreview();
+});
 
         function resetPreview(){
           if (tempURL){ URL.revokeObjectURL(tempURL); tempURL=null; }
@@ -966,6 +1054,7 @@ document.getElementById('saveLoc').onclick = async () => {
 
   </body>
 </html>
+
 
 
 
