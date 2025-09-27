@@ -410,28 +410,28 @@ textarea {
       }
 
 // Fonction pour rendre un artefact
+// ---------- RENDER UN ARTEFACT + COMMENTAIRES ----------
 function renderArtefact({ src, alt }) {
   const artefactId = src.split('/').pop(); // ex: image1.png
 
-  /* --- structure DOM --- */
-  const row = document.createElement('div'); 
+  // --- structure DOM ---
+  const row = document.createElement('div');
   row.className = 'artefact';
-  
+
   const img = document.createElement('img');
   img.alt = alt;
   img.src = src;
-  img.loading = 'lazy'; 
-  
+  img.loading = 'lazy';
   row.appendChild(img);
 
-  const panel = document.createElement('div'); 
+  const panel = document.createElement('div');
   panel.className = 'panel';
 
-  const upper = document.createElement('div'); 
-  upper.className = 'panel-upper'; 
+  const upper = document.createElement('div');
+  upper.className = 'panel-upper';
   panel.appendChild(upper);
 
-  const lower = document.createElement('div'); 
+  const lower = document.createElement('div');
   lower.className = 'panel-lower';
   lower.innerHTML = `
     <input type="text" placeholder="Seu nome (opcional)" maxlength="50" />
@@ -442,35 +442,40 @@ function renderArtefact({ src, alt }) {
     <button style="margin-left:.5rem" data-image>🖼️ Importar imagem</button>
     <input type="file" accept="image/png,image/jpeg,image/webp" data-image-input style="display:none" />
     <button style="margin-left:.5rem" class="loc-btn" data-artefact="${artefactId}">📍 Localizar</button>
-    <div class="rec-info">
-      <span class="rec-time"></span>
-      <span class="file-size"></span>
-    </div>
+    <div class="rec-info"><span class="rec-time"></span><span class="file-size"></span></div>
     <div class="preview" data-preview></div>
   `;
-  panel.appendChild(lower); 
-  row.appendChild(panel); 
+  panel.appendChild(lower);
+  row.appendChild(panel);
   gallery.appendChild(row);
 
-  // Bouton pour charger plus de commentaires
+  // bouton "charger plus"
   const loadMoreBtn = document.createElement('button');
   loadMoreBtn.textContent = 'Carregar mais comentários';
   loadMoreBtn.className = 'load-more-comments';
   loadMoreBtn.style.display = 'none';
   upper.after(loadMoreBtn);
 
-    /* --- références --- */
-  const nameInput  = lower.querySelector('input');
-  const textarea   = lower.querySelector('textarea');
-  const publishBtn = lower.querySelector('[data-publish]');
-  const audioBtn   = lower.querySelector('[data-audio]');
-  const preview    = lower.querySelector('[data-preview]');
-  const charCount  = lower.querySelector('.char-count');
-  const imageBtn   = lower.querySelector('[data-image]');
-  const imageInput = lower.querySelector('[data-image-input]');
-  const recInfo    = lower.querySelector('.rec-info');
-  const timerSpan  = lower.querySelector('.rec-time');
-  const fileSize   = lower.querySelector('.file-size');
+  // --- références ---
+  const nameInput = lower.querySelector('input');
+  const textarea  = lower.querySelector('textarea');
+  const publishBtn= lower.querySelector('[data-publish]');
+  const audioBtn  = lower.querySelector('[data-audio]');
+  const imageBtn  = lower.querySelector('[data-image]');
+  const imageInput= lower.querySelector('[data-image-input]');
+  const preview   = lower.querySelector('[data-preview]');
+  const charCount = lower.querySelector('.char-count');
+  const recInfo   = lower.querySelector('.rec-info');
+  const timerSpan = lower.querySelector('.rec-time');
+  const fileSize  = lower.querySelector('.file-size');
+
+  // --- état local ---
+  let currentPage = 0;
+  // audio
+  let startTime = null, timerId = null, recordingDuration = 0, currentSize = 0;
+  let recorder = null, chunks = [], tempBlob = null, tempURL = null;
+  // image
+  let tempImageBlob = null, tempImageURL = null;
 
   // compteur caractères
   charCount.textContent = `${textarea.value.length} / 1000`;
@@ -478,347 +483,258 @@ function renderArtefact({ src, alt }) {
     charCount.textContent = `${textarea.value.length} / 1000`;
   });
 
-  // ====== Variables AUDIO ======
-  let startTime = null;
-  let timerId = null;
-  let recordingDuration = 0;
-  let currentSize = 0;
-  let tempBlob = null;
-  let tempURL = null;
-  let recorder = null;
-  let chunks = [];
-  let currentPage = 0;
-
-  // ====== Variables IMAGE ======
-  let tempImageBlob = null;
-  let tempImageURL  = null;
-
-  // ====== Aperçu IMAGE ======
-function resetImagePreview() {
-  if (tempImageURL) URL.revokeObjectURL(tempImageURL);
-  tempImageURL = null;
-  tempImageBlob = null;
-  const box = preview.querySelector('.img-preview');
-  if (box) box.remove();
-}
-
-function renderImagePreview() {
-  resetImagePreview();
-  if (!tempImageBlob) return;
-  tempImageURL = URL.createObjectURL(tempImageBlob);
-
-  const wrap = document.createElement('div');
-  wrap.className = 'img-preview';
-  wrap.style.display = 'flex';
-  wrap.style.alignItems = 'center';
-  wrap.style.gap = '.5rem';
-
-  const img = document.createElement('img');
-  img.src = tempImageURL;
-  img.style.maxWidth = '160px';
-  img.style.maxHeight = '120px';
-  img.style.objectFit = 'contain';
-  img.style.border = '1px solid var(--border)';
-  img.style.borderRadius = '4px';
-
-  const del = document.createElement('button');
-  del.textContent = '🗑️';
-  del.title = 'Excluir a imagem';
-  del.onclick = resetImagePreview;
-
-  wrap.append(img, del);
-  preview.appendChild(wrap);
-}
-
-imageBtn.addEventListener('click', () => imageInput.click());
-
-imageInput.addEventListener('change', () => {
-  const f = imageInput.files && imageInput.files[0];
-  console.log('[image] change fired. file =', f);         // debug
-  if (!f) return;
-
-  if (!/^image\/(png|jpe?g|webp)$/i.test(f.type)) {
-    alert('Formato não suportado. Use PNG, JPG ou WebP.');
-    imageInput.value = '';
-    return;
+  // ---- aperçus (⚠️ n’efface plus l’image quand on reset l’audio) ----
+  function resetAudioPreview(){
+    if (tempURL){ URL.revokeObjectURL(tempURL); tempURL=null; }
+    tempBlob = null;
+    const audioWrap = preview.querySelector('.audio-preview');
+    if (audioWrap) audioWrap.remove();
   }
-  const MAX_IMAGE_BYTES = 800 * 1024;
-  console.log('[image] size =', f.size);                   // debug
-  if (f.size > MAX_IMAGE_BYTES) {
-    alert('Imagem muito pesada (máx. 800KB).');
-    imageInput.value = '';
-    return;
+  function renderAudioPreview(){
+    if(!tempURL) return;
+    const old = preview.querySelector('.audio-preview');
+    if (old) old.remove();
+    const wrap = document.createElement('div');
+    wrap.className = 'audio-preview';
+    wrap.style.display = 'flex';
+    wrap.style.alignItems = 'center';
+    wrap.style.gap = '.5rem';
+    const audio = document.createElement('audio');
+    audio.controls = true;
+    audio.src = tempURL;
+    const dur = document.createElement('span');
+    dur.textContent = ` ${recordingDuration.toString().padStart(2,'0')}`;
+    dur.style.fontSize = '.8rem';
+    dur.style.color = '#aaa';
+    const del = document.createElement('button');
+    del.textContent = '🗑️';
+    del.title = 'Excluir a gravação';
+    del.onclick = resetAudioPreview;
+    wrap.append(audio, dur, del);
+    preview.appendChild(wrap);
   }
-  tempImageBlob = f;
-  renderImagePreview();
-});
+  function resetImagePreview(){
+    if (tempImageURL) URL.revokeObjectURL(tempImageURL);
+    tempImageURL = null;
+    tempImageBlob = null;
+    const box = preview.querySelector('.img-preview');
+    if (box) box.remove();
+  }
+  function renderImagePreview(){
+    resetImagePreview();
+    if (!tempImageBlob) return;
+    tempImageURL = URL.createObjectURL(tempImageBlob);
+    const wrap = document.createElement('div');
+    wrap.className = 'img-preview';
+    wrap.style.display = 'flex';
+    wrap.style.alignItems = 'center';
+    wrap.style.gap = '.5rem';
+    const img = document.createElement('img');
+    img.src = tempImageURL;
+    img.style.maxWidth = '160px';
+    img.style.maxHeight = '120px';
+    img.style.objectFit = 'contain';
+    img.style.border = '1px solid var(--border)';
+    img.style.borderRadius = '4px';
+    const del = document.createElement('button');
+    del.textContent = '🗑️';
+    del.title = 'Excluir a imagem';
+    del.onclick = resetImagePreview;
+    wrap.append(img, del);
+    preview.appendChild(wrap);
+  }
 
+  // ---- image : sélecteur & validation ----
+  imageBtn.addEventListener('click', () => imageInput.click());
+  imageInput.addEventListener('change', () => {
+    const f = imageInput.files && imageInput.files[0];
+    console.log('[image] change fired. file =', f);
+    if (!f) return;
+    if (!/^image\/(png|jpe?g|webp)$/i.test(f.type)) {
+      alert('Formato não suportado. Use PNG, JPG ou WebP.');
+      imageInput.value = '';
+      return;
+    }
+    const MAX_IMAGE_BYTES = 800 * 1024;
+    console.log('[image] size =', f.size);
+    if (f.size > MAX_IMAGE_BYTES) {
+      alert('Imagem muito pesada (máx. 800KB).');
+      imageInput.value = '';
+      return;
+    }
+    tempImageBlob = f;
+    renderImagePreview();
+  });
 
-  // ====== Aperçu AUDIO ======
+  // ---- outils audio (inchangé côté UX) ----
   recInfo.style.display = 'none';
- function resetPreview(){
-  if (tempURL){ URL.revokeObjectURL(tempURL); tempURL=null; }
-  tempBlob = null;
-  // enlève UNIQUEMENT l’aperçu audio
-  const audioWrap = preview.querySelector('.audio-preview');
-  if (audioWrap) audioWrap.remove();
-}
-
-function renderPreview(){
-  if(!tempURL) return;
-  // enlève l’ancien aperçu audio s’il existe
-  const old = preview.querySelector('.audio-preview');
-  if (old) old.remove();
-
-  const wrap = document.createElement('div');
-  wrap.className = 'audio-preview';
-  wrap.style.display = 'flex';
-  wrap.style.alignItems = 'center';
-  wrap.style.gap = '.5rem';
-
-  const audio = document.createElement('audio'); 
-  audio.controls = true; 
-  audio.src = tempURL;
-
-  const durLabel = document.createElement('span');
-  durLabel.textContent = ` ${formatTime(recordingDuration)}`;
-  durLabel.style.fontSize = '.8rem';
-  durLabel.style.color = '#aaa';
-
-  const del = document.createElement('button'); 
-  del.textContent = '🗑️'; 
-  del.title = 'Excluir a gravação';
-  del.onclick = resetPreview; 
-
-  wrap.append(audio, durLabel, del);
-  preview.appendChild(wrap);
-}
-
-  // ====== STOP recording (utilisée partout) ======
-  function stopRecording(reason = 'manual') {
-    return new Promise(resolve => {
-      if (!recorder || recorder.state !== 'recording') return resolve();
-
-      if (startTime) {
-        recordingDuration = Math.floor((Date.now() - startTime) / 1000);
-      }
-
+  function stopRecording(reason='manual'){
+    return new Promise(resolve=>{
+      if(!recorder || recorder.state!=='recording') return resolve();
+      if (startTime) recordingDuration = Math.floor((Date.now()-startTime)/1000);
       const onStop = () => {
         recorder.removeEventListener('stop', onStop);
-        if (timerId) { clearInterval(timerId); timerId = null; }
+        if (timerId){ clearInterval(timerId); timerId=null; }
         recInfo.style.display = 'none';
         audioBtn.textContent = '🗣️ Gravar';
         resolve();
       };
-      recorder.addEventListener('stop', onStop, { once: true });
-
-      try {
+      recorder.addEventListener('stop', onStop, { once:true });
+      try{
         recorder.stop();
-        if (reason === 'size_limit') {
-          setTimeout(() => {
-            alert('Gravação parou automaticamente antes de atingir o limite de 4 MB.');
-          }, 300);
+        if (reason==='size_limit'){
+          setTimeout(()=>alert('Gravação parou automaticamente antes de atingir o limite de 4 MB.'), 400);
         }
-      } catch (err) {
-        console.error("Erreur lors de l'arrêt du MediaRecorder :", err);
-        onStop();
-      }
-
-      if (recorder.stream) {
-        try { recorder.stream.getTracks().forEach(t => t.stop()); }
-        catch (err) { console.error("Erreur lors de l'arrêt des pistes audio :", err); }
-      }
+      }catch{}
+      if (recorder.stream){ try{ recorder.stream.getTracks().forEach(t=>t.stop()); }catch{} }
     });
   }
 
-  // ====== Charger messages existants ======
-  loadMessages(artefactId, upper).then(hasMore => {
-    if (hasMore) loadMoreBtn.style.display = 'block';
-  });
-  loadMoreBtn.addEventListener('click', async () => {
-    currentPage++;
-    const hasMore = await loadMessages(artefactId, upper, currentPage);
-    if (!hasMore) loadMoreBtn.style.display = 'none';
-  });
-
-  // ====== Enregistrement AUDIO ======
-  audioBtn.addEventListener('click', async () => {
-    if (!recorder || recorder.state === 'inactive') {
+  audioBtn.addEventListener('click', async ()=>{
+    if (!recorder || recorder.state==='inactive'){
       try {
-        resetPreview();
-        chunks = [];
-        currentSize = 0;
-        recordingDuration = 0;
-
+        resetAudioPreview();
+        chunks = []; currentSize = 0; recordingDuration = 0;
         recInfo.style.display = 'flex';
         timerSpan.textContent = '00:00';
         fileSize.textContent = '(0 B / 4 MB)';
         fileSize.className = '';
-
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+        const stream = await navigator.mediaDevices.getUserMedia({ audio:true });
+        recorder = new MediaRecorder(stream, { mimeType:'audio/webm' });
         recorder.stream = stream;
-
         startTime = Date.now();
-        timerId = setInterval(() => {
-          const elapsed = Math.floor((Date.now() - startTime) / 1000);
-          timerSpan.textContent = formatTime(elapsed);
+        timerId = setInterval(()=>{
+          const elapsed = Math.floor((Date.now()-startTime)/1000);
+          const mm = String(Math.floor(elapsed/60)).padStart(2,'0');
+          const ss = String(elapsed%60).padStart(2,'0');
+          timerSpan.textContent = `${mm}:${ss}`;
         }, 1000);
-
-        recorder.addEventListener('dataavailable', e => {
+        recorder.addEventListener('dataavailable', e=>{
           if (!e.data || !e.data.size) return;
           chunks.push(e.data);
           currentSize += e.data.size;
-          fileSize.textContent = `(${formatFileSize(currentSize)} / 4 MB)`;
-          if (currentSize >= CRITICAL_THRESHOLD) {
-            fileSize.className = 'size-critical';
-            stopRecording('size_limit');
-          } else if (currentSize >= WARNING_THRESHOLD) {
-            fileSize.className = 'size-warning';
-          } else {
-            fileSize.className = '';
-          }
+          fileSize.textContent = `(${(currentSize/1024/1024).toFixed(2)} MB / 4 MB)`;
+          if (currentSize >= 0.95 * (4*1024*1024)) { fileSize.className='size-critical'; stopRecording('size_limit'); }
+          else if (currentSize >= 0.8 * (4*1024*1024)) fileSize.className='size-warning';
+          else fileSize.className='';
         });
-
-        recorder.addEventListener('stop', () => {
-          if (timerId) { clearInterval(timerId); timerId = null; }
-          if (startTime) {
-            recordingDuration = Math.floor((Date.now() - startTime) / 1000);
-          }
+        recorder.addEventListener('stop', ()=>{
+          if (timerId){ clearInterval(timerId); timerId=null; }
+          if (startTime){ recordingDuration = Math.floor((Date.now()-startTime)/1000); }
           startTime = null;
-
-          recorder.stream.getTracks().forEach(track => track.stop());
-          try {
-            tempBlob = new Blob(chunks, { type: 'audio/webm' });
-            if (tempBlob.size > MAX_AUDIO_BYTES) {
-              alert('O áudio é muito grande (máx. 4 MB). Grave novamente.');
-              resetPreview();
-              return;
-            }
-            tempURL = URL.createObjectURL(tempBlob);
-            renderPreview();
-          } catch (err) {
-            console.error("Erreur lors de la création du blob:", err);
-            alert("Erro ao processar o áudio gravado.");
-            resetPreview();
+          recorder.stream.getTracks().forEach(t=>t.stop());
+          tempBlob = new Blob(chunks, { type:'audio/webm' });
+          if (tempBlob.size > 4*1024*1024){
+            alert('O áudio é muito grande (máx. 4 MB).');
+            resetAudioPreview(); return;
           }
+          tempURL = URL.createObjectURL(tempBlob);
+          renderAudioPreview();
         });
-
-        recorder.start(RECORDING_TIMESLICE);
+        recorder.start(1000);
         audioBtn.textContent = '⏹️ Parar';
       } catch (err) {
-        console.error("Erreur d'accès ao micro:", err);
+        console.error('microfone:', err);
         alert('Não foi possível acessar o microfone');
         recInfo.style.display = 'none';
       }
-    } else if (recorder.state === 'recording') {
+    } else {
       stopRecording();
     }
   });
 
-/* === PUBLISH === */
-publishBtn.addEventListener('click', async () => {
-  publishBtn.disabled = true;          // bloque le double-clic
-  await stopRecording();               // termine l'enregistrement si en cours
+  // ---- charger commentaires ----
+  loadMessages(artefactId, upper).then(hasMore=>{
+    if (hasMore) loadMoreBtn.style.display='block';
+  });
+  loadMoreBtn.addEventListener('click', async ()=>{
+    currentPage++;
+    const hasMore = await loadMessages(artefactId, upper, currentPage);
+    if (!hasMore) loadMoreBtn.style.display='none';
+  });
 
-  const comment = textarea.value.trim();
+  // ---- publier ----
+  publishBtn.addEventListener('click', async ()=>{
+    publishBtn.disabled = true;
+    await stopRecording();
 
-    // Autoriser commentaire OU audio OU image
-    if (!comment && !tempBlob && !tempImageBlob) {
-      alert('Adicione um comentário, grave um áudio, ou importe uma imagem.');
-      publishBtn.disabled = false;
-      return;
+    const comment = textarea.value.trim();
+
+    // audio -> base64
+    let audioBase64 = null;
+    if (tempBlob){
+      const bytes = tempBlob.size;
+      if (!bytes) { alert('Áudio vazio.'); publishBtn.disabled=false; return; }
+      if (bytes > 4*1024*1024) { alert('Áudio muito grande (>4MB).'); publishBtn.disabled=false; return; }
+      audioBase64 = await blobToBase64(tempBlob); // base64 "pur"
     }
 
-    if (tempBlob) {
-      try {
-        if (tempBlob.size > MAX_AUDIO_BYTES) {
-          alert('O áudio é muito grande (máx. 4 MB).');
-          publishBtn.disabled = false;
-          return;
-        }
-        if (tempBlob.size === 0) {
-          alert('O áudio parece estar vazio. Grave novamente.');
-          resetPreview();
-          publishBtn.disabled = false;
-          return;
-        }
-      } catch (error) {
-        console.error("Erreur de vérification du blob:", error);
-        alert("Erro ao verificar o áudio.");
-        resetPreview();
-        publishBtn.disabled = false;
-        return;
-      }
+    // image -> dataURL
+    let imageBase64 = null;
+    if (tempImageBlob){
+      const b64 = await blobToBase64(tempImageBlob);
+      imageBase64 = `data:${tempImageBlob.type};base64,${b64}`;
     }
 
-    try {
-      let audioBase64 = null;
-      if (tempBlob) {
-        audioBase64 = await blobToBase64(tempBlob);
-        if (!audioBase64) throw new Error("Falha na conversão do áudio");
-      }
+    if (!comment && !audioBase64 && !imageBase64){
+      alert('Adicione um comentário, um áudio ou uma imagem.');
+      publishBtn.disabled = false; return;
+    }
 
-let imageBase64 = null;
-if (tempImageBlob) {
-  const b64 = await blobToBase64(tempImageBlob);
-  imageBase64 = `data:${tempImageBlob.type};base64,${b64}`;
-}
+    const payload = {
+      artefact_id: artefactId,
+      author: nameInput.value.trim() || 'Anônimo',
+      comment,
+      audioBase64,
+      imageBase64
+    };
 
-const payload = {
-  artefact_id: artefactId,
-  author: nameInput.value.trim() || 'Anônimo',
-  comment,
-  audioBase64,   // ton code existant
-  imageBase64    // ← AJOUT
-};
+    console.log('Envoi des données:',
+      audioBase64 ? '(audio)' : 'sans audio',
+      imageBase64 ? '+ image' : ''
+    );
 
-
-      console.log("Envoi des données:",
-        audioBase64 ? `(audio ~${Math.round(audioBase64.length * .75)} bytes)` : "sans audio",
-        imageBase64 ? "+ image" : "");
-
+    try{
       const res = await fetch('/.netlify/functions/add-message', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-
-      if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(`Erreur serveur (${res.status}): ${errorText}`);
+      if (!res.ok){
+        const t = await res.text();
+        throw new Error(`Erreur serveur (${res.status}): ${t}`);
       }
-
       const { success, id, delete_token } = await res.json();
-      if (success) {
-        const userMessages = JSON.parse(localStorage.getItem('userMessages') || '{}');
-        userMessages[id] = delete_token;
-        localStorage.setItem('userMessages', JSON.stringify(userMessages));
+      if (!success) throw new Error('Réponse invalide');
 
-        textarea.value = '';
-        nameInput.value = '';
-        resetPreview();
-        resetImagePreview();
-        if (imageInput) imageInput.value = '';
+      // mémoriser token de suppression
+      const userMessages = JSON.parse(localStorage.getItem('userMessages') || '{}');
+      userMessages[id] = delete_token;
+      localStorage.setItem('userMessages', JSON.stringify(userMessages));
 
-        // Invalide le cache & recharge
-        Object.keys(messageCache).forEach(key => {
-          if (key.startsWith(artefactId)) delete messageCache[key];
-        });
-        currentPage = 0;
-        loadMessages(artefactId, upper).then(hasMore => {
-          loadMoreBtn.style.display = hasMore ? 'block' : 'none';
-        });
-      } else {
-        alert('Erro ao publicar');
-      }
-    } catch (error) {
-      console.error('Erro ao publicar:', error);
-      alert('Erro ao publicar: ' + error.message);
-    } finally {
+      // reset UI (audio + image)
+      textarea.value = '';
+      nameInput.value = '';
+      resetAudioPreview();
+      resetImagePreview();
+      imageInput.value = '';
+
+      // invalider cache + recharger
+      Object.keys(messageCache).forEach(k => { if (k.startsWith(artefactId)) delete messageCache[k]; });
+      currentPage = 0;
+      loadMessages(artefactId, upper).then(hasMore=>{
+        loadMoreBtn.style.display = hasMore ? 'block' : 'none';
+      });
+
+    }catch(err){
+      console.error('Erro ao publicar:', err);
+      alert('Erro ao publicar: ' + err.message);
+    }finally{
       publishBtn.disabled = false;
     }
   });
 }
+
       
       // Fonction de chargement d'artefacts
       function loadArtefacts(count = 3) {
@@ -976,6 +892,7 @@ document.getElementById('saveLoc').onclick = async () => {
 
   </body>
 </html>
+
 
 
 
