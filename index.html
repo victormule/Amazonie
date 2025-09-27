@@ -862,6 +862,7 @@ let currentMarker = null;            // marqueur qu’on est en train de placer
 let currentArtefactId = null;        // id de l’artefact sélectionné
 
 /* ----------------- ouvrir la modale + charger les points ----------------- */
+/* ----------------- ouvrir la modale + charger les points ----------------- */
 async function openMap(artefactId){
   currentArtefactId = artefactId;
   const modal = document.getElementById('map-modal');
@@ -871,63 +872,62 @@ async function openMap(artefactId){
   document.getElementById('closeMap').onclick = closeMap;
 
   /* ➊ carte Leaflet : init une seule fois */
-  if(!map){
-    map = L.map('leaflet-container').setView([-3,-63], 5);
-const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution:'© OpenStreetMap'
-});
-
-const esriSat = L.tileLayer(
-  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-    attribution: 'Tiles © Esri'
-});
-
-map = L.map('leaflet-container', {
-  center: [-3,-63],
-  zoom: 5,
-  layers: [esriSat]   // démarrer en satellite
-});
-
-L.control.layers({
-  "Carte": osm,
-  "Satellite": esriSat
-}).addTo(map);
-
-
-    /* clic → ajoute / déplace le marqueur temporaire */
-    map.on('click', e=>{
-      if(currentMarker) map.removeLayer(currentMarker);
-      currentMarker = L.marker(e.latlng,{draggable:true}).addTo(map);
+  if (!map) {
+    // Fonds de carte
+    const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap', maxZoom: 19
     });
-  }else{
-    setTimeout(()=> map.invalidateSize(), 100); // fixe redimensionnement
+    const esriSat = L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      { attribution: 'Tiles © Esri', maxZoom: 19 }
+    );
+
+    // ⚠️ Une seule initialisation !
+    map = L.map('leaflet-container', {
+      center: [-3, -63],
+      zoom: 5,
+      layers: [esriSat] // démarrer en satellite (ou mets osm si tu préfères)
+    });
+
+    // Bascule Carte / Satellite
+    L.control.layers({ 'Carte': osm, 'Satellite': esriSat }).addTo(map);
+
+    // Clic → place/déplace le marqueur temporaire
+    map.on('click', e => {
+      if (currentMarker) map.removeLayer(currentMarker);
+      currentMarker = L.marker(e.latlng, { draggable: true }).addTo(map);
+    });
+  } else {
+    // Quand on rouvre la modale, recalcul des dimensions
+    setTimeout(() => map.invalidateSize(), 100);
   }
 
-  /* ➋ purge totale des anciennes couches (sauf fond de carte) */
-  map.eachLayer(l=>{
-    if(!(l instanceof L.TileLayer)) map.removeLayer(l);
+  /* ➋ purge des anciennes couches (on garde les fonds de carte) */
+  map.eachLayer(l => {
+    if (!(l instanceof L.TileLayer)) map.removeLayer(l);
   });
   drawnMarkers = [];
   currentMarker = null;
 
   /* ➌ récupérer les points existants */
-  try{
-    const res = await fetch('/.netlify/functions/get-locations?artefact='+artefactId, { cache: 'no-store' });
+  try {
+    const res = await fetch('/.netlify/functions/get-locations?artefact=' + artefactId, { cache: 'no-store' });
     const points = res.ok ? await res.json() : [];
-    points.forEach(p=>{
+
+    points.forEach(p => {
       const m = L.marker([p.lat, p.lng]).addTo(map)
-                 .bindPopup(`${p.author || 'Anônimo'}<br>${new Date(p.created_at).toLocaleDateString()}`);
+        .bindPopup(`${p.author || 'Anônimo'}<br>${new Date(p.created_at).toLocaleDateString()}`);
       drawnMarkers.push(m);
     });
 
     /* ➍ zoom sur l’ensemble ou vue par défaut */
-    if(points.length){
+    if (points.length) {
       const group = L.featureGroup(drawnMarkers);
       map.fitBounds(group.getBounds().pad(0.25));
-    }else{
-      map.setView([-3,-63],5);
+    } else {
+      map.setView([-3, -63], 5);
     }
-  }catch(e){
+  } catch (e) {
     console.error(e);
   }
 }
@@ -966,6 +966,7 @@ document.getElementById('saveLoc').onclick = async () => {
 
   </body>
 </html>
+
 
 
 
