@@ -1,6 +1,6 @@
 /* =========================================================
    Quai Branly – Memória & Alma
-   App JS (frontend)
+   App JS (frontend) — avec logs
    ========================================================= */
 
 /* ======= CONFIG ======= */
@@ -103,11 +103,14 @@ function renderMessages(messages, container, artefactId, loadMoreBtn, clearConta
       const img = document.createElement("img");
       img.src = `${SUPABASE_URL}/storage/v1/object/public/comment-images/${m.image_path}`;
       img.alt = "imagem do comentário";
+      img.addEventListener("error", () => {
+        console.warn("[messages] image failed to load:", img.src);
+      });
       imgWrap.appendChild(img);
       div.appendChild(imgWrap);
     }
 
-    // Bouton supprimer si message de l'utilisateur
+    // Supprimer
     if (userMessages[m.id]) {
       const del = document.createElement("button");
       del.className = "delete-btn";
@@ -127,10 +130,12 @@ async function loadMessages(artefactId, upper, page = 0, limit = 10) {
     renderMessages(messageCache[cacheKey], upper, artefactId, null, page === 0);
     return messageCache[cacheKey].length === limit;
   }
+  console.log("[messages] fetch get-messages", { artefactId, page, limit });
   const res = await fetch(
     `/.netlify/functions/get-messages?artefact=${encodeURIComponent(artefactId)}&page=${page}&limit=${limit}`
   );
   const data = await res.json();
+  console.log("[messages] fetched", data.length);
   messageCache[cacheKey] = data;
   renderMessages(data, upper, artefactId, null, page === 0);
   return data.length === limit;
@@ -139,11 +144,13 @@ async function loadMessages(artefactId, upper, page = 0, limit = 10) {
 async function deleteMessage(messageId, secretKey, artefactId, upperPanel, loadMoreBtn) {
   if (!confirm("Tem certeza que deseja excluir este comentário?")) return;
   try {
+    console.log("[delete] request", { id: messageId });
     const res = await fetch("/.netlify/functions/delete-message", {
       method: "POST",
       body: JSON.stringify({ id: messageId, delete_token: secretKey }),
     });
     const result = await res.text();
+    console.log("[delete] response:", result);
     if (result === "ok") {
       const userMessages = JSON.parse(localStorage.getItem("userMessages") || "{}");
       delete userMessages[messageId];
@@ -166,6 +173,7 @@ async function deleteMessage(messageId, secretKey, artefactId, upperPanel, loadM
 
 function renderArtefact({ src, alt }) {
   const artefactId = src.split("/").pop();
+  console.log("[artefact] render", artefactId);
 
   const row = document.createElement("div");
   row.className = "artefact";
@@ -235,13 +243,13 @@ function renderArtefact({ src, alt }) {
   // Image
   let tempImageBlob = null, tempImageURL = null;
 
-  /* ---- UI : compteur caractères ---- */
+  /* ---- UI : compteur ---- */
   charCount.textContent = `${textarea.value.length} / 1000`;
   textarea.addEventListener("input", () => {
     charCount.textContent = `${textarea.value.length} / 1000`;
   });
 
-  /* ---- Préviews : audio (n’efface pas l’image) ---- */
+  /* ---- Préviews : audio ---- */
   function resetAudioPreview() {
     if (tempURL) { URL.revokeObjectURL(tempURL); tempURL = null; }
     tempBlob = null;
@@ -270,7 +278,7 @@ function renderArtefact({ src, alt }) {
     const del = document.createElement("button");
     del.textContent = "🗑️";
     del.title = "Excluir a gravação";
-    del.onclick = resetAudioPreview;
+    del.onclick = () => { console.log("[audio] remove preview"); resetAudioPreview(); };
 
     wrap.append(audio, dur, del);
     preview.appendChild(wrap);
@@ -303,24 +311,27 @@ function renderArtefact({ src, alt }) {
     const del = document.createElement("button");
     del.textContent = "🗑️";
     del.title = "Excluir a imagem";
-    del.onclick = resetImagePreview;
+    del.onclick = () => { console.log("[image] remove preview"); resetImagePreview(); };
 
     wrap.append(img, del);
     preview.appendChild(wrap);
   }
 
   imageBtn.addEventListener("click", () => imageInput.click());
-  imageInput.addEventListener("change", () => {
+  imageInput.addEventListener("change", async () => {
     const f = imageInput.files && imageInput.files[0];
+    console.log("[image] change fired. file =", f);
     if (!f) return;
+    console.log("[image] size =", f.size, "type =", f.type);
+
     if (!/^image\/(png|jpe?g|webp)$/i.test(f.type)) {
-      alert("Formato não suportado. Use PNG, JPG ou WebP.");
+      console.warn("[image] type non supporté");
       imageInput.value = "";
       return;
     }
     const MAX_IMAGE_BYTES = 800 * 1024;
     if (f.size > MAX_IMAGE_BYTES) {
-      alert("Imagem muito pesada (máx. 800KB).");
+      console.warn("[image] trop lourd (>800KB)");
       imageInput.value = "";
       return;
     }
@@ -341,16 +352,18 @@ function renderArtefact({ src, alt }) {
         if (timerId) { clearInterval(timerId); timerId = null; }
         recInfo.style.display = "none";
         audioBtn.textContent = "🗣️ Gravar";
+        console.log("[audio] stopped. duration(s)=", recordingDuration, "size≈", currentSize);
         resolve();
       };
       recorder.addEventListener("stop", onStop, { once: true });
 
       try {
+        console.log("[audio] stopping… reason:", reason);
         recorder.stop();
         if (reason === "size_limit") {
           setTimeout(() => alert("Gravação parou automaticamente antes de atingir o limite de 4 MB."), 400);
         }
-      } catch {}
+      } catch (e) { console.warn("[audio] stop error", e); }
       if (recorder.stream) {
         try { recorder.stream.getTracks().forEach((t) => t.stop()); } catch {}
       }
@@ -400,7 +413,7 @@ function renderArtefact({ src, alt }) {
 
           tempBlob = new Blob(chunks, { type: "audio/webm" });
           if (tempBlob.size > MAX_AUDIO_BYTES) {
-            alert("O áudio é muito grande (máx. 4 MB). Grave novamente.");
+            alert("O áudio é muito grande (máx. 4 MB).");
             resetAudioPreview();
             return;
           }
@@ -410,8 +423,9 @@ function renderArtefact({ src, alt }) {
 
         recorder.start(RECORDING_TIMESLICE);
         audioBtn.textContent = "⏹️ Parar";
+        console.log("[audio] recording started");
       } catch (err) {
-        console.error("microfone:", err);
+        console.error("[audio] microphone error:", err);
         alert("Não foi possível acessar o microfone");
         recInfo.style.display = "none";
       }
@@ -451,6 +465,7 @@ function renderArtefact({ src, alt }) {
         return;
       }
       audioBase64 = await blobToBase64(tempBlob);
+      console.log("[publish] audioBase64.len =", audioBase64.length);
     }
 
     // image -> dataURL
@@ -458,6 +473,8 @@ function renderArtefact({ src, alt }) {
     if (tempImageBlob) {
       const b64 = await blobToBase64(tempImageBlob);
       imageBase64 = `data:${tempImageBlob.type};base64,${b64}`;
+      console.log("[publish] imageBase64.len =", imageBase64.length);
+      console.log("[publish] imageBase64 prefix =", imageBase64.slice(0, 30));
     }
 
     if (!comment && !audioBase64 && !imageBase64) {
@@ -473,24 +490,26 @@ function renderArtefact({ src, alt }) {
       audioBase64,
       imageBase64,
     };
-
-    console.log(
-      "Envoi des données:",
-      audioBase64 ? "(audio)" : "sans audio",
-      imageBase64 ? "+ image" : ""
-    );
+    const bodyStr = JSON.stringify(payload);
+    console.log("[publish] payload bytes =", bodyStr.length);
+    console.log("[publish] sending:", audioBase64 ? "(audio)" : "no-audio", imageBase64 ? "+image" : "no-image");
 
     try {
       const res = await fetch("/.netlify/functions/add-message", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: bodyStr,
       });
-      if (!res.ok) {
-        const t = await res.text();
-        throw new Error(`Erreur serveur (${res.status}): ${t}`);
-      }
-      const { success, id, delete_token } = await res.json();
+      console.log("[publish] response status", res.status);
+      const txt = await res.text();
+      console.log("[publish] raw response", txt);
+      if (!res.ok) throw new Error(`HTTP ${res.status} – ${txt}`);
+
+      let json;
+      try { json = JSON.parse(txt); }
+      catch { throw new Error("invalid JSON response: " + txt.slice(0, 120)); }
+
+      const { success, id, delete_token } = json;
       if (!success) throw new Error("Réponse invalide");
 
       // Mémoriser le token de suppression
@@ -512,7 +531,7 @@ function renderArtefact({ src, alt }) {
         loadMoreBtn.style.display = hasMore ? "block" : "none";
       });
     } catch (error) {
-      console.error("Erro ao publicar:", error);
+      console.error("[publish] error:", error);
       alert("Erro ao publicar: " + error.message);
     } finally {
       publishBtn.disabled = false;
@@ -564,10 +583,10 @@ async function openMap(artefactId) {
   modal.style.display = "flex";
 
   $("#closeMap").onclick = closeMap;
+  console.log("[map] open for", artefactId);
 
   // Init carte 1 seule fois
   if (!map) {
-    // couches
     const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: "© OpenStreetMap",
       maxZoom: 19,
@@ -597,8 +616,11 @@ async function openMap(artefactId) {
 
   // Charger points existants
   try {
-    const res = await fetch(`/.netlify/functions/get-locations?artefact=${artefactId}`, { cache: "no-store" });
+    const url = `/.netlify/functions/get-locations?artefact=${artefactId}`;
+    console.log("[map] GET", url);
+    const res = await fetch(url, { cache: "no-store" });
     const points = res.ok ? await res.json() : [];
+    console.log("[map] points =", points.length);
     points.forEach((p) => {
       const m = L.marker([p.lat, p.lng]).addTo(map)
         .bindPopup(`${p.author || "Anônimo"}<br>${new Date(p.created_at).toLocaleDateString()}`);
@@ -611,13 +633,14 @@ async function openMap(artefactId) {
       map.setView([-3, -63], 5);
     }
   } catch (e) {
-    console.error(e);
+    console.error("[map] error", e);
   }
 }
 
 function closeMap() {
   $("#map-modal").style.display = "none";
   if (currentMarker) { map.removeLayer(currentMarker); currentMarker = null; }
+  console.log("[map] close");
 }
 
 $("#saveLoc").addEventListener("click", async () => {
@@ -627,11 +650,13 @@ $("#saveLoc").addEventListener("click", async () => {
   }
   const { lat, lng } = currentMarker.getLatLng();
   const author = prompt("Seu nome (opcional)", "") || "Anônimo";
+  const payload = { artefact_id: currentArtefactId, lat, lng, author };
+  console.log("[map] save", payload);
 
   const res = await fetch("/.netlify/functions/set-location", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ artefact_id: currentArtefactId, lat, lng, author }),
+    body: JSON.stringify(payload),
   });
 
   if (res.ok) {
@@ -639,7 +664,9 @@ $("#saveLoc").addEventListener("click", async () => {
     currentMarker = null;
     closeMap();
   } else {
-    alert("Erro: " + (await res.text()));
+    const t = await res.text();
+    console.warn("[map] save error:", t);
+    alert("Erro: " + t);
   }
 });
 
@@ -653,5 +680,6 @@ document.addEventListener("click", (e) => {
    BOOT
    ========================================================= */
 document.addEventListener("DOMContentLoaded", () => {
+  console.log("[boot] DOM ready");
   loadArtefacts(); // charge les 3 premiers; l’infinite scroll fera le reste
 });
