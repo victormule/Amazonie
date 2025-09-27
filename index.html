@@ -409,157 +409,132 @@ textarea {
         return data.length === limit;
       }
 
-      // Fonction pour rendre un artefact
-      function renderArtefact({ src, alt }) {
-        const artefactId = src.split('/').pop(); // ex: image1.png
+// Fonction pour rendre un artefact
+function renderArtefact({ src, alt }) {
+  const artefactId = src.split('/').pop(); // ex: image1.png
 
-        /* --- structure DOM --- */
-        const row = document.createElement('div'); 
-        row.className = 'artefact';
-        
-        const img = document.createElement('img');
-        img.alt = alt;
-        img.src = src;
-        img.loading = 'lazy'; // Utilisation de l'attribut loading natif
-        
-        const imageBtn  = lower.querySelector('[data-image]');
-        const imageInput= lower.querySelector('[data-image-input]');
-
-        
-        row.appendChild(img);
-        const panel = document.createElement('div'); 
-        panel.className='panel';
-        const upper = document.createElement('div'); 
-        upper.className='panel-upper'; 
-        panel.appendChild(upper);
-        
-        const lower = document.createElement('div'); 
-        lower.className='panel-lower';
-        lower.innerHTML = `
-<input type="text" placeholder="Seu nome (opcional)" maxlength="50" />
-<!-- maxlength + id pour le JS -->
-<textarea placeholder="Adicionar um comentário…" maxlength="1000"></textarea>
-<!-- compteur de caractères -->
-<div class="char-count">0 / 1000</div>
-          <button data-publish>Publicar</button>
-          <button style="margin-left:.5rem" data-audio>🗣️ Gravar</button>
-          <button style="margin-left:.5rem" data-image>🖼️ Importar imagem</button>
-<input type="file" accept="image/png,image/jpeg,image/webp" data-image-input style="display:none" />
-
-         <button style="margin-left:.5rem"
-        class="loc-btn"
-        data-artefact="${artefactId}">📍 Localizar</button>
-          <div class="rec-info">
-            <span class="rec-time"></span>
-            <span class="file-size"></span>
-          </div>
-          <div class="preview" data-preview></div>
-        `;
-        
-        panel.appendChild(lower); 
-        row.appendChild(panel); 
-        gallery.appendChild(row);
-        
-        // Bouton pour charger plus de commentaires
-        const loadMoreBtn = document.createElement('button');
-        loadMoreBtn.textContent = 'Carregar mais comentários';
-        loadMoreBtn.className = 'load-more-comments';
-        loadMoreBtn.style.display = 'none';
-        upper.after(loadMoreBtn);
-
-        /* --- références --- */
-        const nameInput = lower.querySelector('input');
-        const textarea  = lower.querySelector('textarea');
-        const publishBtn= lower.querySelector('[data-publish]');
-        const audioBtn  = lower.querySelector('[data-audio]');
-        const preview   = lower.querySelector('[data-preview]');
-        const charCount = lower.querySelector('.char-count');
-        const locateBtn = lower.querySelector('[data-locate]');
-       document.querySelectorAll('.loc-btn').forEach(btn => {
-  btn.addEventListener('click', () => openMap(btn.dataset.artefact));
-});
-        
-/* compteur temps réel */
-charCount.textContent = `${textarea.value.length} / 1000`;
-textarea.addEventListener('input', () => {
-  charCount.textContent = `${textarea.value.length} / 1000`;
-});
-        const recInfo = lower.querySelector('.rec-info');
-        const timerSpan = lower.querySelector('.rec-time');
-        const fileSize = lower.querySelector('.file-size');
-
-        let startTime   = null;      // horodatage début
-        let timerId     = null;      // setInterval id
-        let recordingDuration = 0;   // durée de l'enregistrement en secondes
-        let currentSize = 0;         // taille courante de l'enregistrement
-        
-        let tempBlob = null;
-        let tempURL  = null;
-        let recorder = null, chunks=[];
-        let currentPage = 0;
-
-        // Cacher l'élément rec-info au début
-        recInfo.style.display = 'none';
-// Réinitialiser l’image temporaire
-function resetImagePreview() {
-  if (tempImageURL) URL.revokeObjectURL(tempImageURL);
-  tempImageURL = null;
-  tempImageBlob = null;
-  // on enlève seulement l’aperçu image si présent
-  const box = preview.querySelector('.img-preview');
-  if (box) box.remove();
-}
-
-// rendre l’aperçu image
-function renderImagePreview() {
-  // enlève ancien si relance
-  resetImagePreview();
-  if (!tempImageBlob) return;
-
-  tempImageURL = URL.createObjectURL(tempImageBlob);
-  const wrap = document.createElement('div');
-  wrap.className = 'img-preview';
-  wrap.style.display = 'flex';
-  wrap.style.alignItems = 'center';
-  wrap.style.gap = '.5rem';
+  /* --- structure DOM --- */
+  const row = document.createElement('div'); 
+  row.className = 'artefact';
+  
   const img = document.createElement('img');
-  img.src = tempImageURL;
-  img.style.maxWidth = '160px';
-  img.style.maxHeight = '120px';
-  img.style.objectFit = 'contain';
-  img.style.border = '1px solid var(--border)';
-  img.style.borderRadius = '4px';
+  img.alt = alt;
+  img.src = src;
+  img.loading = 'lazy'; 
+  
+  row.appendChild(img);
 
-  const del = document.createElement('button');
-  del.textContent = '🗑️';
-  del.title = 'Excluir a imagem';
-  del.onclick = resetImagePreview;
+  const panel = document.createElement('div'); 
+  panel.className = 'panel';
 
-  wrap.append(img, del);
-  preview.appendChild(wrap);
-}
+  const upper = document.createElement('div'); 
+  upper.className = 'panel-upper'; 
+  panel.appendChild(upper);
 
-// cliquer sur le bouton → ouvrir le sélecteur
-imageBtn.addEventListener('click', () => imageInput.click());
+  const lower = document.createElement('div'); 
+  lower.className = 'panel-lower';
+  lower.innerHTML = `
+    <input type="text" placeholder="Seu nome (opcional)" maxlength="50" />
+    <textarea placeholder="Adicionar um comentário…" maxlength="1000"></textarea>
+    <div class="char-count">0 / 1000</div>
+    <button data-publish>Publicar</button>
+    <button style="margin-left:.5rem" data-audio>🗣️ Gravar</button>
+    <button style="margin-left:.5rem" data-image>🖼️ Importar imagem</button>
+    <input type="file" accept="image/png,image/jpeg,image/webp" data-image-input style="display:none" />
+    <button style="margin-left:.5rem" class="loc-btn" data-artefact="${artefactId}">📍 Localizar</button>
+    <div class="rec-info">
+      <span class="rec-time"></span>
+      <span class="file-size"></span>
+    </div>
+    <div class="preview" data-preview></div>
+  `;
+  panel.appendChild(lower); 
+  row.appendChild(panel); 
+  gallery.appendChild(row);
 
-// quand l’utilisateur choisit un fichier
-imageInput.addEventListener('change', () => {
-  const f = imageInput.files && imageInput.files[0];
-  if (!f) return;
-  if (!/^image\/(png|jpe?g|webp)$/i.test(f.type)) {
-    alert('Formato não suportado. Use PNG, JPG ou WebP.');
-    imageInput.value = '';
-    return;
+  // Bouton pour charger plus de commentaires
+  const loadMoreBtn = document.createElement('button');
+  loadMoreBtn.textContent = 'Carregar mais comentários';
+  loadMoreBtn.className = 'load-more-comments';
+  loadMoreBtn.style.display = 'none';
+  upper.after(loadMoreBtn);
+
+  /* --- références --- */
+  const nameInput  = lower.querySelector('input');
+  const textarea   = lower.querySelector('textarea');
+  const publishBtn = lower.querySelector('[data-publish]');
+  const audioBtn   = lower.querySelector('[data-audio]');
+  const preview    = lower.querySelector('[data-preview]');
+  const charCount  = lower.querySelector('.char-count');
+  const imageBtn   = lower.querySelector('[data-image]');
+  const imageInput = lower.querySelector('[data-image-input]');
+
+  // Variables image
+  let tempImageBlob = null;
+  let tempImageURL  = null;
+
+  // Fonctions pour l’image
+  function resetImagePreview() {
+    if (tempImageURL) URL.revokeObjectURL(tempImageURL);
+    tempImageURL = null;
+    tempImageBlob = null;
+    const box = preview.querySelector('.img-preview');
+    if (box) box.remove();
   }
-  const MAX_IMAGE_BYTES = 800 * 1024; // 800KB
-  if (f.size > MAX_IMAGE_BYTES) {
-    alert('Imagem muito pesada (máx. 800KB). Comprima ou escolha outra.');
-    imageInput.value = '';
-    return;
+
+  function renderImagePreview() {
+    resetImagePreview();
+    if (!tempImageBlob) return;
+
+    tempImageURL = URL.createObjectURL(tempImageBlob);
+    const wrap = document.createElement('div');
+    wrap.className = 'img-preview';
+    wrap.style.display = 'flex';
+    wrap.style.alignItems = 'center';
+    wrap.style.gap = '.5rem';
+
+    const img = document.createElement('img');
+    img.src = tempImageURL;
+    img.style.maxWidth = '160px';
+    img.style.maxHeight = '120px';
+    img.style.objectFit = 'contain';
+    img.style.border = '1px solid var(--border)';
+    img.style.borderRadius = '4px';
+
+    const del = document.createElement('button');
+    del.textContent = '🗑️';
+    del.title = 'Excluir a imagem';
+    del.onclick = resetImagePreview;
+
+    wrap.append(img, del);
+    preview.appendChild(wrap);
   }
-  tempImageBlob = f;
-  renderImagePreview();
-});
+
+  // Listeners image
+  imageBtn.addEventListener('click', () => imageInput.click());
+  imageInput.addEventListener('change', () => {
+    const f = imageInput.files && imageInput.files[0];
+    if (!f) return;
+    if (!/^image\/(png|jpe?g|webp)$/i.test(f.type)) {
+      alert('Formato não suportado. Use PNG, JPG ou WebP.');
+      imageInput.value = '';
+      return;
+    }
+    const MAX_IMAGE_BYTES = 800 * 1024; // 800KB
+    if (f.size > MAX_IMAGE_BYTES) {
+      alert('Imagem muito pesada (máx. 800KB). Comprima ou escolha outra.');
+      imageInput.value = '';
+      return;
+    }
+    tempImageBlob = f;
+    renderImagePreview();
+  });
+
+  /* compteur caractères */
+  charCount.textContent = `${textarea.value.length} / 1000`;
+  textarea.addEventListener('input', () => {
+    charCount.textContent = `${textarea.value.length} / 1000`;
+  });
 
         function resetPreview(){
           if (tempURL){ URL.revokeObjectURL(tempURL); tempURL=null; }
@@ -1054,6 +1029,7 @@ document.getElementById('saveLoc').onclick = async () => {
 
   </body>
 </html>
+
 
 
 
