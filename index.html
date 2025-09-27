@@ -868,13 +868,13 @@ async function openMap(artefactId){
   modal.style.display = 'flex';
 
   /* bouton ✖️ */
-  document.getElementById('closeMap').onclick = closeMap;   // ok maintenant
+  document.getElementById('closeMap').onclick = closeMap;
 
   /* ➊ carte Leaflet : init une seule fois */
   if(!map){
     map = L.map('leaflet-container').setView([-3,-63], 5);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-      attribution:'© OpenStreetMap'
+      attribution:'© OpenStreetMap', maxZoom: 18
     }).addTo(map);
 
     /* clic → ajoute / déplace le marqueur temporaire */
@@ -883,20 +883,23 @@ async function openMap(artefactId){
       currentMarker = L.marker(e.latlng,{draggable:true}).addTo(map);
     });
   }else{
-    setTimeout(()=> map.invalidateSize(), 100);             // fixe redimensionnement
+    setTimeout(()=> map.invalidateSize(), 100); // fixe redimensionnement
   }
 
-  /* ➋ effacer les marqueurs précédents */
-  drawnMarkers.forEach(m => map.removeLayer(m));
+  /* ➋ purge totale des anciennes couches (sauf fond de carte) */
+  map.eachLayer(l=>{
+    if(!(l instanceof L.TileLayer)) map.removeLayer(l);
+  });
   drawnMarkers = [];
+  currentMarker = null;
 
-  /* ➌ récupérer les points existants  (URL corrigée 👇) */
+  /* ➌ récupérer les points existants */
   try{
-    const res = await fetch('/.netlify/functions/get-locations?artefact='+artefactId);
+    const res = await fetch('/.netlify/functions/get-locations?artefact='+artefactId, { cache: 'no-store' });
     const points = res.ok ? await res.json() : [];
     points.forEach(p=>{
       const m = L.marker([p.lat, p.lng]).addTo(map)
-                .bindPopup(`${p.author || 'Anônimo'}<br>${new Date(p.created_at).toLocaleDateString()}`);
+                 .bindPopup(`${p.author || 'Anônimo'}<br>${new Date(p.created_at).toLocaleDateString()}`);
       drawnMarkers.push(m);
     });
 
@@ -946,4 +949,5 @@ document.getElementById('saveLoc').onclick = async () => {
 
   </body>
 </html>
+
 
