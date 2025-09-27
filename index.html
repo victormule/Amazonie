@@ -494,87 +494,105 @@ function renderArtefact({ src, alt }) {
   let tempImageURL  = null;
 
   // ====== Aperçu IMAGE ======
-  function resetImagePreview() {
-    if (tempImageURL) URL.revokeObjectURL(tempImageURL);
-    tempImageURL = null;
-    tempImageBlob = null;
-    const box = preview.querySelector('.img-preview');
-    if (box) box.remove();
+function resetImagePreview() {
+  if (tempImageURL) URL.revokeObjectURL(tempImageURL);
+  tempImageURL = null;
+  tempImageBlob = null;
+  const box = preview.querySelector('.img-preview');
+  if (box) box.remove();
+}
+
+function renderImagePreview() {
+  resetImagePreview();
+  if (!tempImageBlob) return;
+  tempImageURL = URL.createObjectURL(tempImageBlob);
+
+  const wrap = document.createElement('div');
+  wrap.className = 'img-preview';
+  wrap.style.display = 'flex';
+  wrap.style.alignItems = 'center';
+  wrap.style.gap = '.5rem';
+
+  const img = document.createElement('img');
+  img.src = tempImageURL;
+  img.style.maxWidth = '160px';
+  img.style.maxHeight = '120px';
+  img.style.objectFit = 'contain';
+  img.style.border = '1px solid var(--border)';
+  img.style.borderRadius = '4px';
+
+  const del = document.createElement('button');
+  del.textContent = '🗑️';
+  del.title = 'Excluir a imagem';
+  del.onclick = resetImagePreview;
+
+  wrap.append(img, del);
+  preview.appendChild(wrap);
+}
+
+imageBtn.addEventListener('click', () => imageInput.click());
+
+imageInput.addEventListener('change', () => {
+  const f = imageInput.files && imageInput.files[0];
+  console.log('[image] change fired. file =', f);         // debug
+  if (!f) return;
+
+  if (!/^image\/(png|jpe?g|webp)$/i.test(f.type)) {
+    alert('Formato não suportado. Use PNG, JPG ou WebP.');
+    imageInput.value = '';
+    return;
   }
-  function renderImagePreview() {
-    resetImagePreview();
-    if (!tempImageBlob) return;
-    tempImageURL = URL.createObjectURL(tempImageBlob);
-    const wrap = document.createElement('div');
-    wrap.className = 'img-preview';
-    wrap.style.display = 'flex';
-    wrap.style.alignItems = 'center';
-    wrap.style.gap = '.5rem';
-    const img = document.createElement('img');
-    img.src = tempImageURL;
-    img.style.maxWidth = '160px';
-    img.style.maxHeight = '120px';
-    img.style.objectFit = 'contain';
-    img.style.border = '1px solid var(--border)';
-    img.style.borderRadius = '4px';
-    const del = document.createElement('button');
-    del.textContent = '🗑️';
-    del.title = 'Excluir a imagem';
-    del.onclick = resetImagePreview;
-    wrap.append(img, del);
-    preview.appendChild(wrap);
+  const MAX_IMAGE_BYTES = 800 * 1024;
+  console.log('[image] size =', f.size);                   // debug
+  if (f.size > MAX_IMAGE_BYTES) {
+    alert('Imagem muito pesada (máx. 800KB).');
+    imageInput.value = '';
+    return;
   }
-  imageBtn.addEventListener('click', () => imageInput.click());
-  imageInput.addEventListener('change', () => {
-    const f = imageInput.files && imageInput.files[0];
-    if (!f) return;
-    if (!/^image\/(png|jpe?g|webp)$/i.test(f.type)) {
-      alert('Formato não suportado. Use PNG, JPG ou WebP.');
-      imageInput.value = '';
-      return;
-    }
-    const MAX_IMAGE_BYTES = 800 * 1024;
-    if (f.size > MAX_IMAGE_BYTES) {
-      alert('Imagem muito pesada (máx. 800KB). Comprima ou escolha outra.');
-      imageInput.value = '';
-      return;
-    }
-    tempImageBlob = f;
-    renderImagePreview();
-  });
+  tempImageBlob = f;
+  renderImagePreview();
+});
+
 
   // ====== Aperçu AUDIO ======
   recInfo.style.display = 'none';
-  function resetPreview(){
-    if (tempURL){ URL.revokeObjectURL(tempURL); tempURL=null; }
-    tempBlob = null;
-    // on n’efface pas l’aperçu image ici
-    const audioBox = preview.querySelector('audio');
-    if (audioBox) {
-      const p = audioBox.parentElement;
-      if (p) p.remove();
-    }
-  }
-  function renderPreview(){
-    if(!tempURL) return;
-    const wrap = document.createElement('div');
-    wrap.style.display = 'flex';
-    wrap.style.alignItems = 'center';
-    wrap.style.gap = '.5rem';
-    const audio = document.createElement('audio'); 
-    audio.controls = true; 
-    audio.src = tempURL;
-    const durLabel = document.createElement('span');
-    durLabel.textContent = ` ${formatTime(recordingDuration)}`;
-    durLabel.style.fontSize = '.8rem';
-    durLabel.style.color = '#aaa';
-    const del = document.createElement('button'); 
-    del.textContent = '🗑️'; 
-    del.title = 'Excluir a gravação';
-    del.onclick = resetPreview; 
-    wrap.append(audio, durLabel, del);
-    preview.appendChild(wrap);
-  }
+ function resetPreview(){
+  if (tempURL){ URL.revokeObjectURL(tempURL); tempURL=null; }
+  tempBlob = null;
+  // enlève UNIQUEMENT l’aperçu audio
+  const audioWrap = preview.querySelector('.audio-preview');
+  if (audioWrap) audioWrap.remove();
+}
+
+function renderPreview(){
+  if(!tempURL) return;
+  // enlève l’ancien aperçu audio s’il existe
+  const old = preview.querySelector('.audio-preview');
+  if (old) old.remove();
+
+  const wrap = document.createElement('div');
+  wrap.className = 'audio-preview';
+  wrap.style.display = 'flex';
+  wrap.style.alignItems = 'center';
+  wrap.style.gap = '.5rem';
+
+  const audio = document.createElement('audio'); 
+  audio.controls = true; 
+  audio.src = tempURL;
+
+  const durLabel = document.createElement('span');
+  durLabel.textContent = ` ${formatTime(recordingDuration)}`;
+  durLabel.style.fontSize = '.8rem';
+  durLabel.style.color = '#aaa';
+
+  const del = document.createElement('button'); 
+  del.textContent = '🗑️'; 
+  del.title = 'Excluir a gravação';
+  del.onclick = resetPreview; 
+
+  wrap.append(audio, durLabel, del);
+  preview.appendChild(wrap);
+}
 
   // ====== STOP recording (utilisée partout) ======
   function stopRecording(reason = 'manual') {
@@ -741,19 +759,20 @@ function renderArtefact({ src, alt }) {
         if (!audioBase64) throw new Error("Falha na conversão do áudio");
       }
 
-      let imageBase64 = null;
-      if (tempImageBlob) {
-        const b64 = await blobToBase64(tempImageBlob);
-        imageBase64 = `data:${tempImageBlob.type};base64,${b64}`;
-      }
+let imageBase64 = null;
+if (tempImageBlob) {
+  const b64 = await blobToBase64(tempImageBlob);
+  imageBase64 = `data:${tempImageBlob.type};base64,${b64}`;
+}
 
-      const payload = {
-        artefact_id: artefactId,
-        author: nameInput.value.trim() || 'Anônimo',
-        comment,
-        audioBase64,
-        imageBase64
-      };
+const payload = {
+  artefact_id: artefactId,
+  author: nameInput.value.trim() || 'Anônimo',
+  comment,
+  audioBase64,   // ton code existant
+  imageBase64    // ← AJOUT
+};
+
 
       console.log("Envoi des données:",
         audioBase64 ? `(audio ~${Math.round(audioBase64.length * .75)} bytes)` : "sans audio",
@@ -957,6 +976,7 @@ document.getElementById('saveLoc').onclick = async () => {
 
   </body>
 </html>
+
 
 
 
