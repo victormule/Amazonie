@@ -873,9 +873,26 @@ async function openMap(artefactId){
   /* ➊ carte Leaflet : init une seule fois */
   if(!map){
     map = L.map('leaflet-container').setView([-3,-63], 5);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-      attribution:'© OpenStreetMap', maxZoom: 18
-    }).addTo(map);
+const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution:'© OpenStreetMap'
+});
+
+const esriSat = L.tileLayer(
+  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    attribution: 'Tiles © Esri'
+});
+
+map = L.map('leaflet-container', {
+  center: [-3,-63],
+  zoom: 5,
+  layers: [esriSat]   // démarrer en satellite
+});
+
+L.control.layers({
+  "Carte": osm,
+  "Satellite": esriSat
+}).addTo(map);
+
 
     /* clic → ajoute / déplace le marqueur temporaire */
     map.on('click', e=>{
@@ -949,5 +966,6 @@ document.getElementById('saveLoc').onclick = async () => {
 
   </body>
 </html>
+
 
 
