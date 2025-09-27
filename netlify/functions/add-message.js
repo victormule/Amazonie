@@ -6,31 +6,31 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY        // rôle service → insert / delete
 )
 
-/* Taille maximale du son : 6 Mo */
-const MAX_BYTES = 6 * 1024 * 1024         // 5 × 1024 × 1024 octets
+/* Tailles maximales */
+const MAX_AUDIO_BYTES = 6 * 1024 * 1024   // 6 Mo
+const MAX_IMAGE_BYTES = 800 * 1024        // 800 Ko
 
 exports.handler = async (event) => {
   try {
-    const { artefact_id, author, comment, audioBase64 } = JSON.parse(event.body)
-    let audio_path = null;  // Déclarer la variable ici avec une valeur par défaut
+    const { artefact_id, author, comment, audioBase64, imageBase64 } = JSON.parse(event.body)
+    let audio_path = null
+    let image_path = null
 
     /* -------- 1. Vérifier / stocker l'audio éventuel -------- */
     if (audioBase64) {
-      /* taille réelle du fichier (après décodage base64) */
       const rawBytes = Buffer.byteLength(audioBase64, 'base64')
-      if (rawBytes > MAX_BYTES) {
-        return { statusCode: 413, body: 'audio too large' } // 413 = Payload Too Large
+      if (rawBytes > MAX_AUDIO_BYTES) {
+        return { statusCode: 413, body: 'audio too large' }
       }
 
       try {
-        const fileName = `${artefact_id}/${Date.now()}.webm`
+        const fileName = `${artefact_id}/aud-${Date.now()}.webm`
         const audioBuffer = Buffer.from(audioBase64, 'base64')
-        
-        // Vérifier que le buffer est valide
+
         if (!audioBuffer || audioBuffer.length === 0) {
           return { statusCode: 400, body: 'invalid audio data' }
         }
-        
+
         const { error: uploadErr } = await supabase
           .storage.from('recordings')
           .upload(fileName, audioBuffer, {
@@ -38,28 +38,67 @@ exports.handler = async (event) => {
           })
 
         if (uploadErr) {
-          console.error('Upload error:', uploadErr)
+          console.error('Upload audio error:', uploadErr)
           return { statusCode: 500, body: JSON.stringify({ error: uploadErr.message }) }
         }
         audio_path = fileName
       } catch (uploadError) {
-        console.error('Error during upload:', uploadError)
+        console.error('Error during audio upload:', uploadError)
         return { statusCode: 500, body: JSON.stringify({ error: uploadError.message }) }
       }
     }
 
-    /* -------- 2. Insérer le message et récupérer id + delete_token -------- */
+    /* -------- 2. Vérifier / stocker l’image éventuelle -------- */
+    if (imageBase64) {
+      try {
+        // dataURL ou juste base64 : on normalise
+        const match = imageBase64.match(/^data:(image\/(png|jpe?g|webp));base64,(.+)$/i)
+        if (!match) {
+          return { statusCode: 415, body: 'unsupported image format' }
+        }
+        const mime = match[1]
+        const ext = mime.includes('jpeg') || mime.includes('jpg') ? 'jpg'
+                  : mime.includes('webp') ? 'webp'
+                  : 'png'
+        const b64 = match[3]
+        const imgBuffer = Buffer.from(b64, 'base64')
+
+        if (imgBuffer.length > MAX_IMAGE_BYTES) {
+          return { statusCode: 413, body: 'image too large' }
+        }
+
+        const fileName = `${artefact_id}/img-${Date.now()}.${ext}`
+
+        const { error: uploadErr } = await supabase
+          .storage.from('comment-images')
+          .upload(fileName, imgBuffer, {
+            contentType: mime
+          })
+
+        if (uploadErr) {
+          console.error('Upload image error:', uploadErr)
+          return { statusCode: 500, body: JSON.stringify({ error: uploadErr.message }) }
+        }
+        image_path = fileName
+      } catch (uploadError) {
+        console.error('Error during image upload:', uploadError)
+        return { statusCode: 500, body: JSON.stringify({ error: uploadError.message }) }
+      }
+    }
+
+    /* -------- 3. Insérer le message -------- */
     const { data, error: insertErr } = await supabase
       .from('messages')
-      .insert({ artefact_id, author, comment, audio_path })
+      .insert({ artefact_id, author, comment, audio_path, image_path })
       .select('id, delete_token')
       .single()
 
     if (insertErr) {
+      console.error('DB insert error:', insertErr)
       return { statusCode: 500, body: insertErr.message }
     }
 
-    /* -------- 3. Réponse OK -------- */
+    /* -------- 4. Réponse OK -------- */
     return {
       statusCode: 200,
       body: JSON.stringify({
@@ -73,3 +112,4 @@ exports.handler = async (event) => {
     return { statusCode: 400, body: 'Bad request' }
   }
 }
+
