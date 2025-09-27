@@ -716,12 +716,12 @@ function renderPreview(){
     }
   });
 
-  // ====== Publish ======
-  publishBtn.addEventListener('click', async () => {
-    publishBtn.disabled = true;
-    await stopRecording();
+/* === PUBLISH === */
+publishBtn.addEventListener('click', async () => {
+  publishBtn.disabled = true;          // bloque le double-clic
+  await stopRecording();               // termine l'enregistrement si en cours
 
-    const comment = textarea.value.trim();
+  const comment = textarea.value.trim();
 
     // Autoriser commentaire OU audio OU image
     if (!comment && !tempBlob && !tempImageBlob) {
@@ -976,6 +976,7 @@ document.getElementById('saveLoc').onclick = async () => {
 
   </body>
 </html>
+
 
 
 
