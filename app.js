@@ -642,13 +642,31 @@ function checkScrollPosition() {
 window.addEventListener("scroll", checkScrollPosition);
 
 /* =========================================================
-   MODAL MAPA (Leaflet)
+   MODAL MAPA (Leaflet) — com edição/remoção de marcadores
    ========================================================= */
 
-let map;                       // instância Leaflet
-let drawnMarkers = [];         // marcadores já salvos
-let currentMarker = null;      // marcador a posicionar
-let currentArtefactId = null;  // id atual
+let map;                          // instância Leaflet
+let drawnMarkers = [];            // marcadores carregados
+let locationMarkersById = new Map(); // id -> marker
+let currentMarker = null;         // marcador temporário (não salvo)
+let currentArtefactId = null;     // id atual do artefato
+
+function getUserLocationsMap(){
+  return JSON.parse(localStorage.getItem('userLocations') || '{}'); // { id: delete_token }
+}
+function setUserLocationToken(id, token){
+  const bag = getUserLocationsMap();
+  bag[id] = token;
+  localStorage.setItem('userLocations', JSON.stringify(bag));
+}
+function hasUserToken(id){
+  const bag = getUserLocationsMap();
+  return !!bag[id];
+}
+function getUserToken(id){
+  const bag = getUserLocationsMap();
+  return bag[id] || null;
+}
 
 async function openMap(artefactId) {
   currentArtefactId = artefactId;
@@ -657,42 +675,73 @@ async function openMap(artefactId) {
 
   $("#closeMap").onclick = closeMap;
 
+  // 1) camadas de mapa
+  const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: "© OpenStreetMap",
+    maxZoom: 19,
+  });
+  const esriSat = L.tileLayer(
+    "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    { attribution: "Tiles © Esri", maxZoom: 19 }
+  );
+
+  // 2) criar mapa UMA vez — ⚠️ padrão = OSM (Mapa)
   if (!map) {
-    const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "© OpenStreetMap",
-      maxZoom: 19,
-    });
-    const esriSat = L.tileLayer(
-      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-      { attribution: "Tiles © Esri", maxZoom: 19 }
-    );
     map = L.map("leaflet-container", {
       center: [-3, -63],
       zoom: 5,
-      layers: [esriSat],
+      layers: [osm],          // ← Mapa por padrão
     });
     L.control.layers({ "Mapa": osm, "Satélite": esriSat }).addTo(map);
+
+    // Clique no mapa → marcador temporário
     map.on("click", (e) => {
       if (currentMarker) map.removeLayer(currentMarker);
       currentMarker = L.marker(e.latlng, { draggable: true }).addTo(map);
     });
+
   } else {
+    // garantir recalculo de tamanho ao reabrir
     setTimeout(() => map.invalidateSize(), 100);
+    // se o layer ativo não for OSM, troca:
+    let hasOSM = false;
+    map.eachLayer(l => { if (l === osm) hasOSM = true; });
+    if (!hasOSM) { esriSat.remove(); osm.addTo(map); }
   }
 
+  // 3) Limpar marcadores antigos (sem tirar camadas de azulejos)
   map.eachLayer((l) => { if (!(l instanceof L.TileLayer)) map.removeLayer(l); });
   drawnMarkers = [];
+  locationMarkersById.clear();
   currentMarker = null;
 
+  // 4) Carregar pontos existentes
   try {
     const url = `/.netlify/functions/get-locations?artefact=${artefactId}`;
     const res = await fetch(url, { cache: "no-store" });
     const points = res.ok ? await res.json() : [];
+
     points.forEach((p) => {
-      const m = L.marker([p.lat, p.lng]).addTo(map)
-        .bindPopup(`${p.author || "Anônimo"}<br>${new Date(p.created_at).toLocaleDateString()}`);
+      const owned = hasUserToken(p.id);
+      const m = L.marker([p.lat, p.lng], { draggable: false }).addTo(map);
+
+      // popup com botões se for do usuário
+      const dateStr = new Date(p.created_at).toLocaleDateString();
+      const baseInfo = `${p.author || "Anônimo"}<br>${dateStr}`;
+      const controls = owned
+        ? `<div style="margin-top:.4rem; display:flex; gap:.4rem">
+             <button class="loc-edit" data-id="${p.id}">✏️ Editar</button>
+             <button class="loc-del"  data-id="${p.id}">🗑️ Excluir</button>
+           </div>`
+        : "";
+      m.bindPopup(`${baseInfo}${controls}`);
+
+      // guardar meta
+      m._meta = { id: p.id, owned };
       drawnMarkers.push(m);
+      locationMarkersById.set(p.id, m);
     });
+
     if (points.length) {
       const group = L.featureGroup(drawnMarkers);
       map.fitBounds(group.getBounds().pad(0.25));
@@ -709,6 +758,7 @@ function closeMap() {
   if (currentMarker) { map.removeLayer(currentMarker); currentMarker = null; }
 }
 
+/* Salvar novo ponto (botão 💾) */
 $("#saveLoc").addEventListener("click", async () => {
   if (!currentMarker) {
     alert("Clique no mapa para escolher o ponto.");
@@ -725,20 +775,129 @@ $("#saveLoc").addEventListener("click", async () => {
   });
 
   if (res.ok) {
+    const txt = await res.text();
+    let json;
+    try { json = JSON.parse(txt); } catch { json = {}; }
+    // esperamos { success, id, delete_token }
+    if (json && json.success && json.id && json.delete_token) {
+      setUserLocationToken(json.id, json.delete_token);
+    }
     alert("Localização salva!");
     currentMarker = null;
-    closeMap();
+    // recarregar para ver o marcador com botões
+    openMap(currentArtefactId);
   } else {
     const t = await res.text();
     alert("Erro: " + t);
   }
 });
 
-/* Delegação de clique para botões Localizar criados dinamicamente */
+/* ==== Delegação de cliques para botões dentro do popup ==== */
+document.addEventListener('click', async (e) => {
+  const btnEdit = e.target.closest('.loc-edit');
+  const btnDel  = e.target.closest('.loc-del');
+  const btnSave = e.target.closest('.loc-save-edit');
+  const btnCancel = e.target.closest('.loc-cancel-edit');
+
+  // EDITAR → tornar o marcador arrastável e trocar os botões
+  if (btnEdit) {
+    const id = btnEdit.dataset.id;
+    const marker = locationMarkersById.get(id);
+    if (!marker || !marker._meta?.owned) return;
+
+    marker.dragging.enable();
+    const content = marker.getPopup().getContent();
+    marker.setPopupContent(
+      content.replace('✏️ Editar</button>', '💾 Salvar</button>')
+             .replace('loc-edit', 'loc-save-edit')
+             .replace('🗑️ Excluir</button>', '✖️ Cancelar</button>')
+             .replace('loc-del', 'loc-cancel-edit')
+    );
+    return;
+  }
+
+  // CANCELAR edição
+  if (btnCancel) {
+    const id = btnCancel.dataset.id;
+    const marker = locationMarkersById.get(id);
+    if (!marker) return;
+
+    marker.dragging.disable();
+    const p = marker._meta;
+    const dateStr = ""; // mantemos o popup original via reload simples:
+    marker.closePopup();
+    openMap(currentArtefactId); // recarrega pontos (volta popup original)
+    return;
+  }
+
+  // SALVAR nova posição (update-location)
+  if (btnSave) {
+    const id = btnSave.dataset.id;
+    const marker = locationMarkersById.get(id);
+    if (!marker) return;
+
+    const token = getUserToken(id);
+    if (!token) { alert("Token ausente para este marcador."); return; }
+
+    const { lat, lng } = marker.getLatLng();
+    try {
+      const res = await fetch('/.netlify/functions/update-location', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, delete_token: token, lat, lng })
+      });
+      const txt = await res.text();
+      if (!res.ok) throw new Error(txt);
+      // fim: desabilitar drag e recarregar
+      marker.dragging.disable();
+      alert('Posição atualizada!');
+      openMap(currentArtefactId);
+    } catch (err) {
+      alert("Erro ao atualizar: " + err.message);
+    }
+    return;
+  }
+
+  // EXCLUIR marcador
+  if (btnDel) {
+    const id = btnDel.dataset.id;
+    const marker = locationMarkersById.get(id);
+    if (!marker) return;
+
+    if (!confirm('Tem certeza que deseja excluir este marcador?')) return;
+    const token = getUserToken(id);
+    if (!token) { alert("Token ausente para este marcador."); return; }
+
+    try {
+      const res = await fetch('/.netlify/functions/delete-location', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, delete_token: token })
+      });
+      const txt = await res.text();
+      if (!res.ok) throw new Error(txt);
+
+      // remover localmente
+      map.removeLayer(marker);
+      locationMarkersById.delete(id);
+      const bag = getUserLocationsMap();
+      delete bag[id];
+      localStorage.setItem('userLocations', JSON.stringify(bag));
+
+      alert('Marcador excluído!');
+    } catch (err) {
+      alert("Erro ao excluir: " + err.message);
+    }
+    return;
+  }
+});
+
+/* Delegação de clique para os botões "Localizar" criados dinamicamente */
 document.addEventListener("click", (e) => {
   const btn = e.target.closest(".loc-btn");
   if (btn) openMap(btn.dataset.artefact);
 });
+
 
 /* =========================================================
    BOOT
@@ -746,4 +905,5 @@ document.addEventListener("click", (e) => {
 document.addEventListener("DOMContentLoaded", () => {
   loadArtefacts(); // carrega os 3 primeiros; o infinite scroll faz o resto
 });
+
 
