@@ -264,22 +264,25 @@ row.appendChild(media);
 
   const lower = document.createElement("div");
   lower.className = "panel-lower";
-  lower.innerHTML = `
-    <input type="text" placeholder="Seu nome (opcional)" maxlength="50" />
-    <textarea placeholder="Adicionar um comentário…" maxlength="1000"></textarea>
-    <div class="char-count">0 / 1000</div>
+lower.innerHTML = `
+  <input type="text" placeholder="Seu nome (opcional)" maxlength="50" />
+  <textarea placeholder="Adicionar um comentário…" maxlength="1000"></textarea>
+  <div class="char-count">0 / 1000</div>
 
-<div class="actions">
-  <button data-publish>Publier</button>
-  <button style="margin-left:.5rem" data-audio>🗣️ Enregistrer</button>
-  <button style="margin-left:.5rem" data-image>🖼️ Importer une image</button>
-  <button style="margin-left:.5rem" class="loc-btn" data-artefact="${artefactId}">📍 Trouver</button>
-</div>
+  <div class="actions">
+    <button data-publish>Publier</button>
+    <button data-audio>🗣️ Enregistrer</button>
+    <button data-image>🖼️ Importer une image</button>
+    <button class="loc-btn" data-artefact="${artefactId}">📍 Trouver</button>
+  </div>
 
+  <!-- ⬇️ input caché requis -->
+  <input type="file" accept="image/png,image/jpeg,image/webp" data-image-input style="display:none" />
 
-    <div class="rec-info"><span class="rec-time"></span><span class="file-size"></span></div>
-    <div class="preview" data-preview></div>
-  `;
+  <div class="rec-info"><span class="rec-time"></span><span class="file-size"></span></div>
+  <div class="preview" data-preview></div>
+`;
+
   panel.appendChild(lower);
   row.appendChild(panel);
   gallery.appendChild(row);
@@ -783,4 +786,5 @@ document.addEventListener("DOMContentLoaded", () => {
   console.log("[boot] DOM ready");
   loadArtefacts(); // charge les 3 premiers; l’infinite scroll fera le reste
 });
+
 
