@@ -1,659 +1,389 @@
 /* =========================================================
    Quai Branly – Memória & Alma
-   Global styles
+   Styles globaux (clean)
    ========================================================= */
 
-/* --------- Design tokens --------- */
-:root {
-  --bg: #111;
-  --text: #f5f5f5;
-  --muted: #ccc;
-  --accent: #f59e0b;
-  --border: #444;
-  --panel: #1a1a1a;
-  --panel-2: #222;
-  --soft: rgba(255, 255, 255, .06);
+/* ---------- Design tokens ---------- */
+:root{
+  --bg:#111;
+  --text:#f5f5f5;
+  --muted:#ccc;
+  --accent:#f59e0b;        /* boutons par défaut */
+  --publish:#ff6a00;       /* bouton "Publicar" (plus rouge) */
+  --border:#444;
+  --panel:#1a1a1a;
+  --panel-2:#222;
+  --soft:rgba(255,255,255,.06);
 }
 
-/* --------- Base / Reset doux --------- */
-* { box-sizing: border-box; }
-html, body { height: 100%; }
-body {
-  margin: 0;
-  padding: 2rem 1rem;
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif;
-  background: var(--bg);
-  color: var(--text);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+/* ---------- Base / reset doux ---------- */
+*{ box-sizing:border-box; }
+html,body{ height:100%; }
+body{
+  margin:0;
+  padding:2rem 1rem;
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,Noto Sans,Apple Color Emoji,Segoe UI Emoji,Segoe UI Symbol,sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
 }
-img { display: block; max-width: 100%; height: auto; }
-a { color: inherit; }
+img{ display:block; max-width:100%; height:auto; }
+a{ color:inherit; text-decoration:none; }
+h1{
+  margin:0 0 3rem;
+  font-size:2.5rem;
+  letter-spacing:.05em;
+  text-align:center;
+}
 
-/* --------- Title --------- */
-h1 {
-  margin: 0 0 3rem;
-  font-size: 2.5rem;
-  letter-spacing: .05em;
-  text-align: center;
+/* ---------- Conteneur galerie ---------- */
+#gallery{ max-width:1200px; margin-inline:auto; }
+
+/* =========================================================
+   Carte artefact (image + commentaires)
+   ========================================================= */
+
+/* Carte qui regroupe visuel + panneau pour une perception d’ensemble */
+.artefact-card{
+  margin:0 auto 2rem;
+  background:#161616;
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:16px;
+  box-shadow:0 6px 22px rgba(0,0,0,.25);
+}
+
+/* Grille deux colonnes (image un peu plus large).
+   Hauteur de ligne fixée => colonnes de même hauteur sur desktop. */
+.artefact__grid{
+  display:grid;
+  grid-template-columns:1.1fr 1fr;
+  gap:16px;
+  align-items:stretch;
+  height:clamp(420px, 60vh, 720px);
+}
+
+/* Colonne visuel */
+.artefact__media{
+  background:#000;
+  border:1px solid var(--border);
+  border-radius:10px;
+  box-shadow:0 4px 16px rgba(0,0,0,.35);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  height:100%;
+  min-height:0;
+}
+.artefact__media img{
+  max-width:100%;
+  max-height:100%;
+  object-fit:contain;
+}
+
+/* Panneau de commentaires / édition */
+.panel{
+  background:rgba(255,255,255,.03);
+  border:1px solid var(--border);
+  border-radius:10px;
+  box-shadow:0 4px 16px rgba(0,0,0,.35);
+  display:flex;
+  flex-direction:column;
+  height:100%;
+  min-height:0; /* nécessaire pour que le scroll interne fonctionne */
+}
+
+/* Barre d’outils en haut (toggle Commentários/Escrever) */
+.panel-toolbar{
+  display:flex;
+  justify-content:flex-end;
+  gap:.5rem;
+  padding:.45rem .7rem;
+  border-bottom:1px solid var(--border);
+}
+.panel-toolbar .toggle-mode{
+  background:transparent;
+  border:1px solid var(--border);
+  color:var(--text);
+  padding:.35rem .65rem;
+  font-size:.9rem;
+  border-radius:6px;
+  cursor:pointer;
+}
+.panel-toolbar .toggle-mode:hover{
+  background:var(--accent);
+  color:#000;
+  border-color:var(--accent);
+}
+
+/* Liste des messages (zone scrollable) */
+.panel-upper{
+  flex:1 1 auto;
+  overflow:auto;
+  padding:1rem;
+  scrollbar-width:thin;
+  scrollbar-color:var(--border) transparent;
+}
+.panel-upper::-webkit-scrollbar{ width:8px; }
+.panel-upper::-webkit-scrollbar-thumb{ background:var(--border); border-radius:8px; }
+
+/* Zone d’édition (replie quand .panel.collapsed) */
+.panel-lower{
+  border-top:1px solid var(--border);
+  padding:1rem;
+  background:var(--panel-2);
+  display:flex;
+  flex-direction:column;
+  gap:.6rem;
+}
+.panel.collapsed .panel-lower{ display:none; }
+.panel.collapsed .panel-upper{ padding-top:.6rem; }
+
+/* =========================================================
+   Commentaires & prévisualisations
+   ========================================================= */
+
+.note{
+  background:var(--soft);
+  padding:.6rem .8rem;
+  margin:0 0 .6rem;
+  border-radius:6px;
+  font-size:.95rem;
+  border:1px solid transparent;
+}
+.note:hover{ border-color:var(--border); }
+
+.note .comment-media{ margin:.4rem 0 .6rem; }
+.note .comment-media img{
+  max-width:100%;
+  max-height:260px;
+  object-fit:contain;
+  border:1px solid var(--border);
+  border-radius:4px;
+  background:#000;
+}
+
+.preview{
+  display:flex;
+  align-items:center;
+  gap:.6rem;
+  flex-wrap:wrap;
+  margin-top:.6rem;
+}
+.audio-preview,
+.img-preview{
+  display:flex;
+  align-items:center;
+  gap:.5rem;
+}
+.img-preview img{
+  max-width:160px;
+  max-height:120px;
+  object-fit:contain;
+  border:1px solid var(--border);
+  border-radius:4px;
+  background:#000;
 }
 
 /* =========================================================
-   Layout des artefacts
-   ========================================================= */
-
-#gallery { max-width: 1200px; margin-inline: auto; }
-
-.artefact {
-  display: flex;
-  align-items: flex-start;
-  gap: 1.5rem;
-  margin-bottom: 3rem;
-}
-
-.artefact > img {
-  width: 45%;
-  height: auto;
-  object-fit: contain;
-  box-shadow: 0 4px 16px rgba(0,0,0,.6);
-  border-radius: 4px;
-  border: 1px solid var(--border);
-}
-
-/* Panneau latéral */
-.panel {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  max-height: 600px;
-  border: 1px solid var(--border);
-  background: var(--panel);
-  border-radius: 6px;
-}
-
-/* Liste des notes */
-.panel-upper {
-  flex: 1 1 auto;
-  overflow-y: auto;
-  margin-bottom: 1rem;
-  padding: 1rem 1rem 0;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border) transparent;
-}
-.panel-upper::-webkit-scrollbar { width: 8px; }
-.panel-upper::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; }
-
-/* Zone d’édition */
-.panel-lower {
-  border-top: 1px solid var(--border);
-  padding: 1rem;
-  background: var(--panel-2);
-}
-
-/* Une “note” (commentaire) */
-.note {
-  background: var(--soft);
-  padding: .6rem .8rem;
-  margin: 0 0 .6rem;
-  border-radius: 6px;
-  font-size: .95rem;
-  border: 1px solid transparent;
-}
-.note:hover { border-color: var(--border); }
-
-/* Médias dans les commentaires (image) */
-.note .comment-media { margin: .25rem 0 .5rem; }
-.note .comment-media img {
-  max-width: 100%;
-  max-height: 220px;          /* garde le bloc harmonieux */
-  object-fit: contain;
-  border-radius: 4px;
-  border: 1px solid var(--border);
-  background: #000;
-}
-
-/* Prévisualisations locales (avant envoi) */
-.preview {
-  display: flex;
-  align-items: center;
-  gap: .6rem;
-  margin-top: .6rem;
-  flex-wrap: wrap;
-}
-.audio-preview, .img-preview {
-  display: flex;
-  align-items: center;
-  gap: .5rem;
-}
-.img-preview img {
-  max-width: 160px;
-  max-height: 120px;
-  object-fit: contain;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: #000;
-}
-
-/* =========================================================
-   Form Controls
+   Formulaires & boutons
    ========================================================= */
 
 textarea,
-input[type="text"] {
-  width: 100%;
-  background: #1f1f1f;
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: .55rem .7rem;
-  margin-bottom: .5rem;
-  outline: none;
+input[type="text"]{
+  width:100%;
+  background:#1f1f1f;
+  color:var(--text);
+  border:1px solid var(--border);
+  border-radius:6px;
+  padding:.55rem .7rem;
+  outline:none;
 }
 textarea:focus,
-input[type="text"]:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgb(245 158 11 / .15);
+input[type="text"]:focus{
+  border-color:var(--accent);
+  box-shadow:0 0 0 3px rgb(245 158 11 / .15);
+}
+textarea{
+  min-height:60px;
+  max-height:200px;
+  resize:vertical;
+  overflow-x:hidden;
+  white-space:pre-wrap;
+  word-break:break-word;
+  overflow-wrap:anywhere;
+}
+.char-count{
+  font-size:.75rem;
+  text-align:right;
+  color:#aaa;
+  margin-top:-6px;
 }
 
-textarea {
-  min-height: 60px;
-  max-height: 200px;      /* limite d’agrandissement */
-  resize: vertical;
-  overflow-x: hidden;     /* pas de scroll horizontal */
-  white-space: pre-wrap;  /* conserve les sauts de ligne mais wrappe */
-  word-break: break-word;
-  overflow-wrap: anywhere;
+.actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:.6rem;
+  margin-top:.25rem;
 }
-
-/* Compteur de caractères */
-.char-count {
-  font-size: .75rem;
-  text-align: right;
-  color: #aaa;
-  margin-top: -6px;
-  margin-bottom: .5rem;
+button{
+  background:var(--accent);
+  border:none;
+  color:#000;
+  padding:.5rem 1rem;
+  border-radius:6px;
+  font-weight:600;
+  cursor:pointer;
+  transition:filter .15s ease, transform .02s ease;
 }
+button:hover{ filter:brightness(1.05); }
+button:active{ transform:translateY(1px); }
+button[disabled]{ opacity:.6; cursor:not-allowed; }
 
-/* Boutons génériques */
-button {
-  background: var(--accent);
-  border: none;
-  color: #000;
-  padding: .5rem 1rem;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: filter .15s ease, transform .02s ease;
-}
-button:hover { filter: brightness(1.05); }
-button:active { transform: translateY(1px); }
-button[disabled] { opacity: .6; cursor: not-allowed; }
+/* Bouton “Publicar” distinct */
+.actions [data-publish]{ background:var(--publish); }
+.actions [data-publish]:hover{ filter:brightness(1.08); }
 
-/* Bouton “écouter l’audio” lazy */
-.play-audio {
-  background: rgba(255,255,255,.1);
-  color: var(--text);
-  padding: .3rem .5rem;
-  font-size: .85rem;
-  border: 1px solid var(--border);
+/* Bouton “écouter l’audio” (lazy) */
+.play-audio{
+  background:rgba(255,255,255,.1);
+  color:var(--text);
+  padding:.3rem .5rem;
+  font-size:.85rem;
+  border:1px solid var(--border);
 }
 
 /* Bouton “charger plus” */
-.load-more-comments {
-  display: block;
-  width: 100%;
-  margin-top: 1rem;
-  background: rgba(255,255,255,.1);
-  color: var(--text);
-  border: 1px solid var(--border);
+.load-more-comments{
+  display:block;
+  width:100%;
+  margin-top:1rem;
+  background:rgba(255,255,255,.1);
+  color:var(--text);
+  border:1px solid var(--border);
 }
 
-/* Bouton supprimer un message */
-.delete-btn {
-  background: transparent;
-  color: #ff4d4d;
-  border: 1px solid #ff4d4d;
-  font-size: .85rem;
-  padding: .25rem .55rem;
-  margin-top: .4rem;
-  cursor: pointer;
-  border-radius: 4px;
+/* Supprimer un message */
+.delete-btn{
+  background:transparent;
+  color:#ff4d4d;
+  border:1px solid #ff4d4d;
+  font-size:.85rem;
+  padding:.25rem .55rem;
+  margin-top:.4rem;
+  border-radius:4px;
 }
-.delete-btn:hover { background: rgba(255, 77, 77, .12); }
+.delete-btn:hover{ background:rgba(255,77,77,.12); }
 
-/* Infos enregistrement audio */
-.rec-info {
-  margin-left: .5rem;
-  font-size: .85rem;
-  color: var(--muted);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 5px 0;
+/* Infos enregistrement */
+.rec-info{
+  font-size:.85rem;
+  color:var(--muted);
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:5px 0;
 }
-.size-warning { color: #ff9a3c; }
-.size-critical { color: #ff4d4d; }
+.size-warning{ color:#ff9a3c; }
+.size-critical{ color:#ff4d4d; }
 
-/* Loader des artefacts */
-#loading-indicator {
-  text-align: center;
-  padding: 1rem;
-  color: var(--accent);
-  display: none; /* togglé par JS */
+/* Loader */
+#loading-indicator{
+  text-align:center;
+  padding:1rem;
+  color:var(--accent);
+  display:none;
 }
 
-/* =========================================================
-   Liens / pied d’intro
-   ========================================================= */
-
-.privacy-link {
-  text-align: center;
-  margin: 0 0 1.2rem;
+/* Liens d’intro */
+.privacy-link{ text-align:center; margin:0 0 1.2rem; }
+.privacy-link a{
+  border-bottom:1px dotted var(--border);
+  font-size:.95rem;
 }
-.privacy-link a {
-  color: var(--text);
-  text-decoration: none;
-  border-bottom: 1px dotted var(--border);
-  font-size: .95rem;
-}
-.privacy-link a:hover {
-  color: var(--accent);
-  border-color: var(--accent);
+.privacy-link a:hover{
+  color:var(--accent);
+  border-color:var(--accent);
 }
 
 /* =========================================================
-   Modale Carte (Leaflet)
+   Modale carte (Leaflet)
    ========================================================= */
 
-/* Overlay plein écran */
-#map-modal {
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  background: rgba(0,0,0,.78);
-  display: none;                 /* JS: display:flex pour l’ouvrir */
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
+#map-modal{
+  position:fixed; inset:0; z-index:9999;
+  background:rgba(0,0,0,.78);
+  display:none;                 /* togglé en JS */
+  align-items:center;
+  justify-content:center;
+  padding:1rem;
 }
-
-/* Conteneur vertical : bannière + carte */
-.map-wrapper {
-  display: flex;
-  flex-direction: column;
-  width: 90%;
-  max-width: 720px;
-  height: 80vh;
-  position: relative;
-  background: #222;
-  border: 1px solid #555;
-  border-radius: 8px;
-  overflow: hidden;
+.map-wrapper{
+  display:flex;
+  flex-direction:column;
+  width:90%;
+  max-width:720px;
+  height:80vh;
+  position:relative;
+  background:#222;
+  border:1px solid #555;
+  border-radius:8px;
+  overflow:hidden;
 }
-
-/* bandeau haut */
-.map-banner {
-  background: #333;
-  color: #f5f5f5;
-  padding: .7rem 1rem;
-  text-align: center;
-  font-weight: 600;
-  border-bottom: 1px solid #555;
+.map-banner{
+  background:#333;
+  color:#f5f5f5;
+  padding:.7rem 1rem;
+  text-align:center;
+  font-weight:600;
+  border-bottom:1px solid #555;
 }
-
-/* la carte prend tout l’espace restant */
-#leaflet-container {
-  flex: 1 1 auto;
-  height: auto;
-  width: 100%;
-  position: relative;
-  z-index: 1;
+#leaflet-container{
+  flex:1 1 auto;
+  width:100%;
+  height:auto;
+  position:relative;
+  z-index:1;
 }
-
-/* Boutons sur la carte (en bas) */
-.map-btn {
-  position: absolute;
-  bottom: 10px;
-  padding: .45rem .9rem;
-  background: var(--accent);
-  border: none;
-  color: #000;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 1rem;
-  z-index: 1500; /* au-dessus des contrôles Leaflet */
+.map-btn{
+  position:absolute;
+  bottom:10px;
+  padding:.45rem .9rem;
+  background:var(--accent);
+  color:#000;
+  border:none;
+  border-radius:6px;
+  font-size:1rem;
+  cursor:pointer;
+  z-index:1500;
 }
-.map-btn:hover { filter: brightness(1.06); }
-#saveLoc { left: 10px; }
-#closeMap { right: 10px; }
+.map-btn:hover{ filter:brightness(1.06); }
+#saveLoc{ left:10px; }
+#closeMap{ right:10px; }
 
 /* =========================================================
    Responsive
    ========================================================= */
 
-@media (max-width: 1024px) {
-  .artefact > img { width: 50%; }
-}
-@media (max-width: 768px) {
-  .artefact { flex-direction: column; }
-  .artefact > img { width: 100%; }
-  .panel { max-height: none; }
-}
-
-/* =========================================================
-   Accessibilité focus-visible
-   ========================================================= */
-:where(button, a, input, textarea):focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-/* =============== LAYOUT ARTEFACT =============== */
-.artefact{
-  display:grid;
-  grid-template-columns: minmax(360px, 1fr) minmax(420px, 0.9fr);
-  align-items: stretch;             /* colonnes même hauteur */
-  gap: 1.5rem;
-  margin-bottom: 2rem;
-}
-
-/* conteneur image pour maîtriser la hauteur */
-.artefact__media{
-  background:#000;
-  border:1px solid var(--border);
-  border-radius: 8px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  /* hauteur contrôlée (égale au panneau) */
-  height: clamp(380px, 60vh, 720px);
-  box-shadow: 0 4px 16px rgba(0,0,0,.35);
-}
-.artefact__media img{
-  max-width:100%;
-  max-height:100%;
-  width:auto;
-  height:100%;
-  object-fit: contain;
-}
-
-/* panneau = même hauteur, scroll interne pour la liste */
-.panel{
-  display:flex;
-  flex-direction:column;
-  border:1px solid var(--border);
-  border-radius:8px;
-  min-height:0;         /* important pour que overflow fonctionne */
-  height: 100%;         /* prend toute la hauteur de la ligne */
-  box-shadow: 0 4px 16px rgba(0,0,0,.35);
-}
-.panel-upper{
-  flex:1 1 auto;
-  overflow:auto;
-  padding: 1rem;
-}
-.panel-lower{
-  border-top:1px solid var(--border);
-  padding: 1rem;
-  display:flex;
-  flex-direction: column;
-  gap: .6rem;
-}
-
-/* groupe d’actions : plus de chevauchement */
-.actions{
-  display:flex;
-  flex-wrap: wrap;
-  gap:.6rem;
-}
-.actions button{
-  flex:0 0 auto;             /* pas d’étirement moche */
-}
-
-/* media dans les commentaires */
-.note .comment-media{ margin:.4rem 0 .6rem; }
-.note .comment-media img{
-  max-width:100%;
-  max-height: 260px;
-  object-fit: contain;
-  display:block;
-  border:1px solid var(--border);
-  border-radius:4px;
-}
-
-/* =============== RESPONSIVE =============== */
-@media (max-width: 980px){
-  .artefact{
-    grid-template-columns: 1fr;     /* une colonne */
-    gap: .9rem;
-  }
-  .artefact__media{
-    /* sous 980px, on laisse respirer, on garde une belle proportion */
-    height: auto;
-    aspect-ratio: 4 / 3;            /* tu peux mettre 1/1 si tu préfères carré */
-    max-height: 66vh;
-  }
-  .panel{ margin-top: .25rem; }     /* se colle visuellement au visuel */
-}
-
-/* petits écrans : boutons encore plus souples */
-@media (max-width: 520px){
-  .actions{ gap:.5rem; }
-  .actions button{ width: auto; }
-}
-
-/* === Make the image column and the comments column the same height === */
-/* Desktop / wide screens: fix the ROW height, and make both children fill it */
-.artefact{
-  display:grid;
-  grid-template-columns: minmax(360px, 1fr) minmax(420px, 0.9fr);
-  gap: 1.5rem;
-  align-items: stretch;
-  /* 👇 this fixes the whole row height so both columns are equal */
-  height: clamp(420px, 60vh, 720px);
-}
-
-/* each column fills the row height */
-.artefact__media,
-.panel{
-  height: 100%;
-  min-height: 0;   /* allow inner scroll, do not force growth */
-}
-
-/* the image wrapper just centers the image, no fixed height anymore */
-.artefact__media{
-  background:#000;
-  border:1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0,0,0,.35);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-}
-
-/* image fits inside without distortion */
-.artefact__media img{
-  max-width:100%;
-  max-height:100%;
-  object-fit:contain;
-  display:block;
-}
-
-/* the panel scrolls internally instead of growing the row */
-.panel{
-  display:flex;
-  flex-direction:column;
-  border:1px solid var(--border);
-  border-radius:8px;
-  box-shadow: 0 4px 16px rgba(0,0,0,.35);
-  min-height:0;   /* important with overflow in children */
-}
-.panel-upper{
-  flex:1 1 auto;
-  overflow:auto;
-  padding:1rem;
-}
-.panel-lower{
-  border-top:1px solid var(--border);
-  padding:1rem;
-  display:flex;
-  flex-direction:column;
-  gap:.6rem;
-}
-
-/* Responsive: when it stacks, release the fixed height so it can grow naturally */
-@media (max-width: 980px){
-  .artefact{
-    grid-template-columns: 1fr;
-    height: auto;      /* 🔓 let the block get taller when stacked */
-    gap: .9rem;
+@media (max-width:980px){
+  .artefact__grid{
+    grid-template-columns:1fr; /* empile */
+    height:auto;               /* on relâche la hauteur contrainte */
+    gap:.9rem;
   }
   .panel{ margin-top:.25rem; }
   .artefact__media{
-    /* keep pleasant ratio under the image when stacked */
-    aspect-ratio: 4 / 3;
-    max-height: 66vh;
+    aspect-ratio:4/3;          /* visuel agréable en pile */
+    max-height:66vh;
   }
 }
-
-/* Barre d'outils du panneau (bouton de repli) */
-.panel-toolbar{
-  display:flex;
-  justify-content:flex-end;
-  gap:.5rem;
-  padding:.45rem .7rem;
-  border-bottom:1px solid var(--border);
+@media (max-width:520px){
+  .actions{ gap:.5rem; }
 }
 
-/* Style du bouton */
-.panel-toolbar .toggle-mode{
-  background:transparent;
-  border:1px solid var(--border);
-  color:var(--text);
-  padding:.35rem .65rem;
-  font-size:.9rem;
-  border-radius:6px;
-  cursor:pointer;
+/* Accessibilité */
+:where(button,a,input,textarea):focus-visible{
+  outline:2px solid var(--accent);
+  outline-offset:2px;
 }
-.panel-toolbar .toggle-mode:hover{
-  background:var(--accent);
-  color:#000;
-  border-color:var(--accent);
-}
-
-/* Quand replié, on cache toute la zone d'édition */
-.panel.collapsed .panel-lower{ display:none; }
-/* (optionnel) un poil moins de padding quand replié */
-.panel.collapsed .panel-upper{ padding-top:.6rem; }
-
-/* barre d'outils du panneau (toggle écrire/commentaires) */
-.panel-toolbar{
-  display:flex;
-  justify-content:flex-end;
-  gap:.5rem;
-  padding:.45rem .7rem;
-  border-bottom:1px solid var(--border);
-}
-.panel-toolbar .toggle-mode{
-  background:transparent;
-  border:1px solid var(--border);
-  color:var(--text);
-  padding:.35rem .65rem;
-  font-size:.9rem;
-  border-radius:6px;
-  cursor:pointer;
-}
-.panel-toolbar .toggle-mode:hover{
-  background:var(--accent);
-  color:#000;
-  border-color:var(--accent);
-}
-
-/* repli : cacher la zone d’édition */
-.panel.collapsed .panel-lower{ display:none; }
-
-/* boutons : style par défaut + "Publicar" un peu différent */
-.actions button{
-  background: var(--accent);
-}
-.actions [data-publish]{
-  background: #ff7520;               /* un poil plus lumineux que var(--accent) */
-}
-.actions [data-publish]:hover{
-  filter: brightness(1.08);
-}
-
-/* --------- Carte unifiée image + commentaires ---------- */
-.artefact-card{
-  max-width: 1200px;           /* largeur max pour le duo */
-  margin: 0 auto 2rem;         /* centré + espacement entre cartes */
-  background:#161616;
-  border:1px solid var(--border);
-  border-radius:12px;
-  padding:16px;
-  box-shadow: 0 6px 22px rgba(0,0,0,.25);
-}
-
-/* Grille 2 colonnes sur large, 1 colonne sur mobile */
-.artefact__grid{
-  display:grid;
-  grid-template-columns: 1.1fr 1fr; /* image un peu plus large */
-  gap:16px;
-  align-items:start;
-}
-
-@media (max-width: 980px){
-  .artefact__grid{ grid-template-columns: 1fr; } /* empile */
-}
-
-/* Média de l’artefact */
-.artefact__media{
-  width:100%;
-}
-.artefact__media img{
-  display:block;
-  width:100%;
-  height:auto;
-  border-radius:10px;
-  border:1px solid #222;
-  background:#000;
-}
-
-/* Panneau de commentaires */
-.panel{ 
-  width:100%;
-  background:rgba(255,255,255,.03);
-  border:1px solid var(--border);
-  border-radius:10px;
-  padding:12px;
-}
-
-/* Le bloc qui liste les commentaires (scrollable mais compact) */
-.panel-upper{
-  max-height: 340px;           /* garde un profil bas */
-  overflow:auto;
-  margin-bottom:.75rem;
-  padding-right:.25rem;
-}
-
-/* Rangée des actions (les boutons) — compacte */
-.actions{
-  display:flex;
-  flex-wrap:wrap;
-  gap:.5rem;
-  margin:.5rem 0 0;
-}
-
-/* default buttons */
-.actions button{ background: var(--accent); }
-
-/* Publicar = slightly red/orange */
-.actions [data-publish]{
-  background: #ff6a00;       /* plus rouge que l’accent */
-}
-.actions [data-publish]:hover{
-  filter: brightness(1.08);
-}
-
-
-
