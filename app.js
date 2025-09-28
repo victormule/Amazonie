@@ -255,7 +255,7 @@ function renderArtefact({ src, alt }) {
 
   // ---- right: panel ----
   const panel = document.createElement('div');
-  panel.className = 'panel';
+  panel.className = 'panel collapsed';
 
   // top toolbar (toggle button lives here)
   const toolbar = document.createElement('div');
@@ -303,7 +303,7 @@ function renderArtefact({ src, alt }) {
   upper.after(loadMoreBtn);
 
   /* --- refs --- */
-  const nameInput = lower.querySelector("input");
+  const nameInput = lower.querySelector('input[type="text"]');
   const textarea  = lower.querySelector("textarea");
   const publishBtn= lower.querySelector("[data-publish]");
   const audioBtn  = lower.querySelector("[data-audio]");
@@ -890,6 +890,7 @@ document.addEventListener("click", (e) => {
 document.addEventListener("DOMContentLoaded", () => {
   loadArtefacts(); // carrega os 3 primeiros; o infinite scroll faz o resto
 });
+
 
 
 
