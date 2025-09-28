@@ -310,21 +310,18 @@ function renderArtefact({ src, alt }) {
   const fileSize  = lower.querySelector(".file-size");
   const toggleBtn = toolbar.querySelector('.toggle-mode');
 
-/* ---- “Comentários primeiro” (retraído por padrão) ---- */
-// Sempre começar REPLIÉ ao entrar na página
-let collapsed = true;                           // <— force closed by default
-panel.classList.toggle('collapsed', collapsed);
-toggleBtn.textContent = '✎ Escrever';
-toggleBtn.setAttribute('aria-expanded', 'false');
-
-// Alternar entre "Escrever" e "Comentários" (sem persistência)
-toggleBtn.addEventListener('click', () => {
-  collapsed = !collapsed;
+  /* ---- “Comentários primeiro” (retraído por padrão) ---- */
+  let collapsed = true;
   panel.classList.toggle('collapsed', collapsed);
-  toggleBtn.textContent = collapsed ? '✎ Escrever' : '🗂️ Comentários';
-  toggleBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
-});
+  toggleBtn.textContent = '✎ Escrever';
+  toggleBtn.setAttribute('aria-expanded', 'false');
 
+  toggleBtn.addEventListener('click', () => {
+    collapsed = !collapsed;
+    panel.classList.toggle('collapsed', collapsed);
+    toggleBtn.textContent = collapsed ? '✎ Escrever' : '🗂️ Comentários';
+    toggleBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+  });
 
   /* ---- contador ---- */
   charCount.textContent = `${textarea.value.length} / 1000`;
@@ -469,7 +466,7 @@ toggleBtn.addEventListener('click', () => {
     if (!f) return;
 
     try {
-      const { blob: comp, mime } = await compressImage(f, {
+      const { blob: comp } = await compressImage(f, {
         maxWidth: 1600, maxHeight: 1600, maxBytes: 400 * 1024,
         preferType: 'image/webp', initialQuality: 0.92,
       });
@@ -642,16 +639,16 @@ function checkScrollPosition() {
 window.addEventListener("scroll", checkScrollPosition);
 
 /* =========================================================
-   MODAL MAPA (Leaflet) — Mapa par défaut + SUPPRIMER (live)
+   MODAL MAPA (Leaflet) — Mapa por padrão + DELETE (ao vivo)
    ========================================================= */
 
 let map;                       // instance Leaflet
-let osmLayer, esriSatLayer;    // couches tuiles
-let currentMarker = null;      // marqueur temporaire (non sauvegardé)
-let currentArtefactId = null;  // artefact courant
-let markersById = new Map();   // id -> marker affiché
+let osmLayer, esriSatLayer;    // camadas de tiles
+let currentMarker = null;      // marcador temporário
+let currentArtefactId = null;  // artefato atual
+const markersById = new Map(); // id -> marker exibido
 
-/* --- tokens de suppression pour les marqueurs de l'utilisateur --- */
+/* tokens de exclusão para marcadores do usuário */
 function getUserLocationsMap(){
   return JSON.parse(localStorage.getItem('userLocations') || '{}'); // { id: delete_token }
 }
@@ -677,7 +674,7 @@ async function openMap(artefactId) {
   modal.removeAttribute('inert');
   document.getElementById('closeMap').onclick = closeMap;
 
-  // 1) Créer la carte une seule fois — PAR DÉFAUT = OSM (Mapa)
+  // cria o mapa 1x — default = OSM (Mapa)
   if (!map) {
     osmLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: "© OpenStreetMap", maxZoom: 19
@@ -689,18 +686,18 @@ async function openMap(artefactId) {
     map = L.map("leaflet-container", { center: [-3, -63], zoom: 5, layers: [osmLayer] });
     L.control.layers({ "Mapa": osmLayer, "Satélite": esriSatLayer }).addTo(map);
 
-    // Clic → marqueur temporaire
+    // click → coloca/ move marcador temporário
     map.on("click", (e) => {
       if (currentMarker) map.removeLayer(currentMarker);
       currentMarker = L.marker(e.latlng, { draggable: true }).addTo(map);
     });
 
-    // ESC pour fermer
+    // ESC fecha
     document.addEventListener('keydown', (ev) => {
       if (modal.style.display !== 'none' && ev.key === 'Escape') closeMap();
     });
   } else {
-    // re-bascule sur OSM à l’ouverture si nécessaire
+    // força OSM ao abrir
     if (!map.hasLayer(osmLayer)) {
       if (map.hasLayer(esriSatLayer)) map.removeLayer(esriSatLayer);
       osmLayer.addTo(map);
@@ -708,12 +705,12 @@ async function openMap(artefactId) {
     setTimeout(() => map.invalidateSize(), 100);
   }
 
-  // 2) Purge des anciens marqueurs (on garde les tuiles)
+  // limpa marcadores antigos (mantém tiles)
   map.eachLayer(l => { if (!(l instanceof L.TileLayer)) map.removeLayer(l); });
   markersById.clear();
   currentMarker = null;
 
-  // 3) Charger les points
+  // carrega pontos existentes
   try {
     const url = `/.netlify/functions/get-locations?artefact=${artefactId}`;
     const res = await fetch(url, { cache: "no-store" });
@@ -731,7 +728,7 @@ async function openMap(artefactId) {
       m.bindPopup(`${p.author || "Anônimo"}<br>${dateStr}${controls}`);
     });
 
-    // Fit bounds
+    // ajusta bounds
     const liveMarkers = [];
     map.eachLayer(l => { if (!(l instanceof L.TileLayer)) liveMarkers.push(l); });
     if (liveMarkers.length) {
@@ -747,7 +744,7 @@ async function openMap(artefactId) {
 
 function closeMap() {
   const modal = document.getElementById('map-modal');
-  // éviter le warning aria-hidden: retirer le focus interne
+  // a11y: evitar foco oculto
   if (modal.contains(document.activeElement)) {
     document.activeElement.blur();
     document.body.focus?.();
@@ -758,7 +755,7 @@ function closeMap() {
   if (currentMarker) { map.removeLayer(currentMarker); currentMarker = null; }
 }
 
-/* Enregistrer un nouveau point */
+/* Salvar novo ponto */
 document.getElementById('saveLoc').addEventListener('click', async () => {
   if (!currentMarker) {
     alert("Clique no mapa para escolher o ponto.");
@@ -777,13 +774,13 @@ document.getElementById('saveLoc').addEventListener('click', async () => {
     const txt = await res.text();
     if (!res.ok) throw new Error(txt);
 
-    // { success, id, delete_token }
+    // espera { success, id, delete_token }
     let json = {};
     try { json = JSON.parse(txt); } catch {}
     if (json && json.success && json.id && json.delete_token) {
       setUserLocationToken(json.id, json.delete_token);
 
-      // Ajout instantané du marqueur “possédé” (+ popup avec bouton)
+      // adiciona imediatamente o novo marcador “do usuário”
       const m = L.marker([lat, lng]).addTo(map);
       markersById.set(json.id, m);
       const dateStr = new Date().toLocaleDateString();
@@ -791,9 +788,8 @@ document.getElementById('saveLoc').addEventListener('click', async () => {
       map.removeLayer(currentMarker);
       currentMarker = null;
     } else {
-      // fallback
       alert("Localização salva!");
-      openMap(currentArtefactId);
+      openMap(currentArtefactId); // fallback: recarrega
       return;
     }
 
@@ -803,153 +799,46 @@ document.getElementById('saveLoc').addEventListener('click', async () => {
   }
 });
 
-/* === DÉLÉGATION GLOBALE : suppression d’un marqueur ===
-   (plus de listener par-popup ; fonctionne après ré-ouvertures) */
-document.addEventListener("click", async (e) => {
-  const btn = e.target.closest('.loc-del');
-  if (!btn) return;
+/* === Listener global (delegado) para excluir marcador === */
+if (!window.__locDelBound) {
+  window.__locDelBound = true;
+  document.addEventListener("click", async (e) => {
+    const btn = e.target.closest('.loc-del');
+    if (!btn) return;
 
-  const id = btn.dataset.id;
-  const token = getUserToken(id);
-  if (!token) { alert("Token ausente para este marcador."); return; }
-  if (!confirm('Tem certeza que deseja excluir este marcador?')) return;
-
-  try {
-    const r = await fetch('/.netlify/functions/delete-location', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, delete_token: token })
-    });
-    const txt = await r.text();
-    if (!r.ok) throw new Error(txt);
-
-    // ✅ suppression immédiate dans la carte & dans l’état local
-    const m = markersById.get(id);
-    if (m) {
-      try { m.closePopup(); } catch {}
-      map.removeLayer(m);
-      markersById.delete(id);
-    }
-    removeUserLocationToken(id);
-  } catch (err) {
-    alert("Erro ao excluir: " + err.message);
-  }
-});
-
-/* Ouvre la carte quand on clique sur “Localizar” (délégation globale) */
-document.addEventListener("click", (e) => {
-  const btn = e.target.closest(".loc-btn");
-  if (btn) openMap(btn.dataset.artefact);
-});
-
-
-
-/* ==== Delegação de cliques para botões dentro do popup ==== */
-document.addEventListener('click', async (e) => {
-  const btnEdit = e.target.closest('.loc-edit');
-  const btnDel  = e.target.closest('.loc-del');
-  const btnSave = e.target.closest('.loc-save-edit');
-  const btnCancel = e.target.closest('.loc-cancel-edit');
-
-  // EDITAR → tornar o marcador arrastável e trocar os botões
-  if (btnEdit) {
-    const id = btnEdit.dataset.id;
-    const marker = locationMarkersById.get(id);
-    if (!marker || !marker._meta?.owned) return;
-
-    marker.dragging.enable();
-    const content = marker.getPopup().getContent();
-    marker.setPopupContent(
-      content.replace('✏️ Editar</button>', '💾 Salvar</button>')
-             .replace('loc-edit', 'loc-save-edit')
-             .replace('🗑️ Excluir</button>', '✖️ Cancelar</button>')
-             .replace('loc-del', 'loc-cancel-edit')
-    );
-    return;
-  }
-
-  // CANCELAR edição
-  if (btnCancel) {
-    const id = btnCancel.dataset.id;
-    const marker = locationMarkersById.get(id);
-    if (!marker) return;
-
-    marker.dragging.disable();
-    const p = marker._meta;
-    const dateStr = ""; // mantemos o popup original via reload simples:
-    marker.closePopup();
-    openMap(currentArtefactId); // recarrega pontos (volta popup original)
-    return;
-  }
-
-  // SALVAR nova posição (update-location)
-  if (btnSave) {
-    const id = btnSave.dataset.id;
-    const marker = locationMarkersById.get(id);
-    if (!marker) return;
-
+    const id = btn.dataset.id;
     const token = getUserToken(id);
     if (!token) { alert("Token ausente para este marcador."); return; }
-
-    const { lat, lng } = marker.getLatLng();
-    try {
-      const res = await fetch('/.netlify/functions/update-location', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, delete_token: token, lat, lng })
-      });
-      const txt = await res.text();
-      if (!res.ok) throw new Error(txt);
-      // fim: desabilitar drag e recarregar
-      marker.dragging.disable();
-      alert('Posição atualizada!');
-      openMap(currentArtefactId);
-    } catch (err) {
-      alert("Erro ao atualizar: " + err.message);
-    }
-    return;
-  }
-
-  // EXCLUIR marcador
-  if (btnDel) {
-    const id = btnDel.dataset.id;
-    const marker = locationMarkersById.get(id);
-    if (!marker) return;
-
     if (!confirm('Tem certeza que deseja excluir este marcador?')) return;
-    const token = getUserToken(id);
-    if (!token) { alert("Token ausente para este marcador."); return; }
 
     try {
-      const res = await fetch('/.netlify/functions/delete-location', {
+      const r = await fetch('/.netlify/functions/delete-location', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, delete_token: token })
       });
-      const txt = await res.text();
-      if (!res.ok) throw new Error(txt);
+      const txt = await r.text();
+      if (!r.ok) throw new Error(txt);
 
-      // remover localmente
-      map.removeLayer(marker);
-      locationMarkersById.delete(id);
-      const bag = getUserLocationsMap();
-      delete bag[id];
-      localStorage.setItem('userLocations', JSON.stringify(bag));
-
-      alert('Marcador excluído!');
+      // remoção imediata no mapa e no estado local
+      const m = markersById.get(id);
+      if (m) {
+        try { m.closePopup(); } catch {}
+        m.remove();                 // remove do mapa
+        markersById.delete(id);
+      }
+      removeUserLocationToken(id);
     } catch (err) {
       alert("Erro ao excluir: " + err.message);
     }
-    return;
-  }
-});
+  });
+}
 
-/* Delegação de clique para os botões "Localizar" criados dinamicamente */
+/* Abrir o mapa ao clicar em “Localizar” (delegação global) */
 document.addEventListener("click", (e) => {
   const btn = e.target.closest(".loc-btn");
   if (btn) openMap(btn.dataset.artefact);
 });
-
 
 /* =========================================================
    BOOT
@@ -957,9 +846,3 @@ document.addEventListener("click", (e) => {
 document.addEventListener("DOMContentLoaded", () => {
   loadArtefacts(); // carrega os 3 primeiros; o infinite scroll faz o resto
 });
-
-
-
-
-
-
