@@ -347,3 +347,99 @@ button[disabled] { opacity: .6; cursor: not-allowed; }
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+
+/* =============== LAYOUT ARTEFACT =============== */
+.artefact{
+  display:grid;
+  grid-template-columns: minmax(360px, 1fr) minmax(420px, 0.9fr);
+  align-items: stretch;             /* colonnes même hauteur */
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+/* conteneur image pour maîtriser la hauteur */
+.artefact__media{
+  background:#000;
+  border:1px solid var(--border);
+  border-radius: 8px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  /* hauteur contrôlée (égale au panneau) */
+  height: clamp(380px, 60vh, 720px);
+  box-shadow: 0 4px 16px rgba(0,0,0,.35);
+}
+.artefact__media img{
+  max-width:100%;
+  max-height:100%;
+  width:auto;
+  height:100%;
+  object-fit: contain;
+}
+
+/* panneau = même hauteur, scroll interne pour la liste */
+.panel{
+  display:flex;
+  flex-direction:column;
+  border:1px solid var(--border);
+  border-radius:8px;
+  min-height:0;         /* important pour que overflow fonctionne */
+  height: 100%;         /* prend toute la hauteur de la ligne */
+  box-shadow: 0 4px 16px rgba(0,0,0,.35);
+}
+.panel-upper{
+  flex:1 1 auto;
+  overflow:auto;
+  padding: 1rem;
+}
+.panel-lower{
+  border-top:1px solid var(--border);
+  padding: 1rem;
+  display:flex;
+  flex-direction: column;
+  gap: .6rem;
+}
+
+/* groupe d’actions : plus de chevauchement */
+.actions{
+  display:flex;
+  flex-wrap: wrap;
+  gap:.6rem;
+}
+.actions button{
+  flex:0 0 auto;             /* pas d’étirement moche */
+}
+
+/* media dans les commentaires */
+.note .comment-media{ margin:.4rem 0 .6rem; }
+.note .comment-media img{
+  max-width:100%;
+  max-height: 260px;
+  object-fit: contain;
+  display:block;
+  border:1px solid var(--border);
+  border-radius:4px;
+}
+
+/* =============== RESPONSIVE =============== */
+@media (max-width: 980px){
+  .artefact{
+    grid-template-columns: 1fr;     /* une colonne */
+    gap: .9rem;
+  }
+  .artefact__media{
+    /* sous 980px, on laisse respirer, on garde une belle proportion */
+    height: auto;
+    aspect-ratio: 4 / 3;            /* tu peux mettre 1/1 si tu préfères carré */
+    max-height: 66vh;
+  }
+  .panel{ margin-top: .25rem; }     /* se colle visuellement au visuel */
+}
+
+/* petits écrans : boutons encore plus souples */
+@media (max-width: 520px){
+  .actions{ gap:.5rem; }
+  .actions button{ width: auto; }
+}
+
+
