@@ -1,6 +1,5 @@
 /* =========================================================
    Quai Branly – Memória & Alma
-   App JS (frontend) — avec logs et correctifs imageInput._blob
    ========================================================= */
 
 /* ======= CONFIG ======= */
@@ -50,6 +49,71 @@ const formatFileSize = (bytes) => {
   const mb = kb / 1024;
   return mb.toFixed(2) + " MB";
 };
+
+/* ---- compression image côté client ≤ 400 KB ---------------- */
+async function compressImage(file, {
+  maxWidth = 1600,
+  maxHeight = 1600,
+  maxBytes = 400 * 1024,     // <= 400 KB
+  preferType = 'image/webp',
+  initialQuality = 0.92,
+} = {}) {
+  const url = URL.createObjectURL(file);
+  const img = await new Promise((res, rej) => {
+    const i = new Image();
+    i.onload = () => res(i);
+    i.onerror = rej;
+    i.src = url;
+  });
+  URL.revokeObjectURL(url);
+
+  const toBlob = (canvas, type, q) =>
+    new Promise((resolve) => canvas.toBlob((b) => resolve(b), type, q));
+
+  // Choix du type de sortie (WebP si supporté sinon JPEG)
+  let outType = preferType;
+  try {
+    const probe = document.createElement('canvas').toDataURL(preferType);
+    if (!probe.startsWith(`data:${preferType}`)) outType = 'image/jpeg';
+  } catch { outType = 'image/jpeg'; }
+
+  // 1) redimensionner pour tenir dans maxWidth/maxHeight
+  const scale = Math.min(1, maxWidth / img.width, maxHeight / img.height);
+  let w = Math.max(1, Math.round(img.width * scale));
+  let h = Math.max(1, Math.round(img.height * scale));
+
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = w; canvas.height = h;
+  ctx.drawImage(img, 0, 0, w, h);
+
+  // 2) baisser la qualité puis réduire dimensions si nécessaire
+  let q = initialQuality;
+  let blob = await toBlob(canvas, outType, q);
+  // baisser qualité
+  while (blob && blob.size > maxBytes && q > 0.4) {
+    q -= 0.08;
+    blob = await toBlob(canvas, outType, q);
+  }
+  // réduire dimensions par itérations si encore trop lourd
+  let dimIter = 0;
+  while (blob && blob.size > maxBytes && dimIter < 5) {
+    dimIter++;
+    w = Math.max(640, Math.round(w * 0.85));
+    h = Math.max(640, Math.round(h * 0.85));
+    canvas.width = w; canvas.height = h;
+    ctx.clearRect(0, 0, w, h);
+    ctx.drawImage(img, 0, 0, w, h);
+    q = Math.min(q, 0.85);
+    blob = await toBlob(canvas, outType, q);
+    while (blob && blob.size > maxBytes && q > 0.4) {
+      q -= 0.08;
+      blob = await toBlob(canvas, outType, q);
+    }
+  }
+
+  return { blob, mime: outType, width: w, height: h, quality: q };
+}
 
 /* ======= STATE ======= */
 const gallery = $("#gallery");
@@ -282,64 +346,77 @@ function renderArtefact({ src, alt }) {
     preview.appendChild(wrap);
   }
 
-  /* ---- Préviews : image (corrigé) ---- */
+  /* ---- Préviews : image (compressée ≤ 400 KB) ---- */
   imageBtn.addEventListener("click", () => imageInput.click());
 
-  imageInput.addEventListener("change", () => {
+  imageInput.addEventListener("change", async () => {
     const f = imageInput.files && imageInput.files[0];
     console.log("[image] change fired. file =", f);
     if (!f) return;
-    console.log("[image] size =", f.size, "type =", f.type);
 
-    if (!/^image\/(png|jpe?g|webp)$/i.test(f.type)) {
-      console.warn("[image] type non supporté");
-      imageInput.value = "";
-      return;
-    }
-    const MAX_IMAGE_BYTES = 800 * 1024;
-    if (f.size > MAX_IMAGE_BYTES) {
-      console.warn("[image] trop lourd (>800KB)");
-      imageInput.value = "";
-      return;
-    }
+    try {
+      const { blob: comp, mime, width, height, quality } = await compressImage(f, {
+        maxWidth: 1600,
+        maxHeight: 1600,
+        maxBytes: 400 * 1024,   // <= 400 KB
+        preferType: 'image/webp',
+        initialQuality: 0.92,
+      });
 
-    // ✅ On stocke le blob et l’URL *sur l’input*, pour éviter tout problème de scope
-    imageInput._blob = f;
-    if (imageInput._url) URL.revokeObjectURL(imageInput._url);
-    imageInput._url = URL.createObjectURL(f);
+      if (!comp) {
+        alert("Não foi possível comprimir a imagem.");
+        imageInput.value = "";
+        return;
+      }
 
-    // Aperçu
-    const old = preview.querySelector(".img-preview");
-    if (old) old.remove();
-    const wrap = document.createElement("div");
-    wrap.className = "img-preview";
-    wrap.style.display = "flex";
-    wrap.style.alignItems = "center";
-    wrap.style.gap = ".5rem";
+      console.log(
+        `[image] compressed ${f.size} → ${comp.size} bytes, ` +
+        `${width}x${height}, q≈${quality.toFixed(2)}, type=${mime}`
+      );
 
-    const img = document.createElement("img");
-    img.src = imageInput._url;
-    img.style.maxWidth = "160px";
-    img.style.maxHeight = "120px";
-    img.style.objectFit = "contain";
-    img.style.border = "1px solid var(--border)";
-    img.style.borderRadius = "4px";
+      // stocker blob compressé sur l’input
+      imageInput._blob = comp;
 
-    const del = document.createElement("button");
-    del.textContent = "🗑️";
-    del.title = "Excluir a imagem";
-    del.onclick = () => {
+      // aperçu = image compressée
       if (imageInput._url) URL.revokeObjectURL(imageInput._url);
-      imageInput._url = null;
-      imageInput._blob = null;
-      const box = preview.querySelector(".img-preview");
-      if (box) box.remove();
-      imageInput.value = "";
-      console.log("[image] preview removed");
-    };
+      imageInput._url = URL.createObjectURL(comp);
 
-    wrap.append(img, del);
-    preview.appendChild(wrap);
+      const old = preview.querySelector(".img-preview");
+      if (old) old.remove();
+      const wrap = document.createElement("div");
+      wrap.className = "img-preview";
+      wrap.style.display = "flex";
+      wrap.style.alignItems = "center";
+      wrap.style.gap = ".5rem";
+
+      const img = document.createElement("img");
+      img.src = imageInput._url;
+      img.style.maxWidth = "160px";
+      img.style.maxHeight = "120px";
+      img.style.objectFit = "contain";
+      img.style.border = "1px solid var(--border)";
+      img.style.borderRadius = "4px";
+
+      const del = document.createElement("button");
+      del.textContent = "🗑️";
+      del.title = "Excluir a imagem";
+      del.onclick = () => {
+        if (imageInput._url) URL.revokeObjectURL(imageInput._url);
+        imageInput._url = null;
+        imageInput._blob = null;
+        const box = preview.querySelector(".img-preview");
+        if (box) box.remove();
+        imageInput.value = "";
+        console.log("[image] preview removed");
+      };
+
+      wrap.append(img, del);
+      preview.appendChild(wrap);
+    } catch (e) {
+      console.error("[image] compression error:", e);
+      alert("Erro ao processar a imagem.");
+      imageInput.value = "";
+    }
   });
 
   /* ---- Audio : enregistrement ---- */
@@ -472,7 +549,7 @@ function renderArtefact({ src, alt }) {
       console.log("[publish] audioBase64.len =", audioBase64.length);
     }
 
-    // ✅ IMAGE → lit depuis l’input du panneau courant
+    // IMAGE → lit depuis l’input (blob compressé)
     let imageBase64 = null;
     const picked = imageInput._blob;
     if (picked) {
