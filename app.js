@@ -235,7 +235,7 @@ async function deleteMessage(messageId, secretKey, artefactId, upperPanel, loadM
 function renderArtefact({ src, alt }) {
   const artefactId = src.split('/').pop();
 
-  // ---- carte conteneur (cadre commun) ----
+  // ---- outer card + grid ----
   const card  = document.createElement('div');
   card.className = 'artefact-card';
 
@@ -243,7 +243,7 @@ function renderArtefact({ src, alt }) {
   grid.className = 'artefact__grid';
   card.appendChild(grid);
 
-  // ---- colonne image ----
+  // ---- left: image ----
   const media = document.createElement('div');
   media.className = 'artefact__media';
   const img = document.createElement('img');
@@ -253,13 +253,22 @@ function renderArtefact({ src, alt }) {
   media.appendChild(img);
   grid.appendChild(media);
 
-  // ---- colonne panneau commentaires ----
+  // ---- right: panel ----
   const panel = document.createElement('div');
   panel.className = 'panel';
+
+  // top toolbar (toggle button lives here)
+  const toolbar = document.createElement('div');
+  toolbar.className = 'panel-toolbar';
+  toolbar.innerHTML = `<button type="button" class="toggle-mode" aria-expanded="false">✎ Escrever</button>`;
+  panel.appendChild(toolbar);
+
+  // list of comments
   const upper = document.createElement('div');
   upper.className = 'panel-upper';
   panel.appendChild(upper);
 
+  // editor area
   const lower = document.createElement('div');
   lower.className = 'panel-lower';
   lower.innerHTML = `
@@ -268,9 +277,7 @@ function renderArtefact({ src, alt }) {
     <div class="char-count">0 / 1000</div>
 
     <div class="actions">
-      <button data-toggle>🗂️ Comentários</button>
-      <button data-compose>✍️ Escrever</button>
-      <button data-publish style="background:#ffb133">Publicar</button>
+      <button data-publish>Publicar</button>
       <button data-audio>🗣️ Gravar</button>
       <button data-image>🖼️ Importar imagem</button>
       <button class="loc-btn" data-artefact="${artefactId}">📍 Localizar</button>
@@ -286,16 +293,16 @@ function renderArtefact({ src, alt }) {
   panel.appendChild(lower);
   grid.appendChild(panel);
 
-  // Ajoute la carte complète dans la galerie
   gallery.appendChild(card);
-  // Botão "carregar mais"
+
+  // “load more” button, under the list
   const loadMoreBtn = document.createElement("button");
   loadMoreBtn.textContent = "Carregar mais comentários";
   loadMoreBtn.className = "load-more-comments";
   loadMoreBtn.style.display = "none";
   upper.after(loadMoreBtn);
 
-  /* --- referências --- */
+  /* --- refs --- */
   const nameInput = lower.querySelector("input");
   const textarea  = lower.querySelector("textarea");
   const publishBtn= lower.querySelector("[data-publish]");
@@ -309,11 +316,11 @@ function renderArtefact({ src, alt }) {
   const fileSize  = lower.querySelector(".file-size");
   const toggleBtn = toolbar.querySelector('.toggle-mode');
 
-  /* ---- “Comentários primeiro” (retraído por padrão) ---- */
+  /* ---- collapsed by default (comments first) ---- */
   let collapsed = true;
   panel.classList.toggle('collapsed', collapsed);
-  toggleBtn.textContent = '✎ Escrever';
-  toggleBtn.setAttribute('aria-expanded', 'false');
+  toggleBtn.textContent = collapsed ? '✎ Escrever' : '🗂️ Comentários';
+  toggleBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
 
   toggleBtn.addEventListener('click', () => {
     collapsed = !collapsed;
@@ -322,13 +329,13 @@ function renderArtefact({ src, alt }) {
     toggleBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
   });
 
-  /* ---- contador ---- */
+  /* ---- live char counter ---- */
   charCount.textContent = `${textarea.value.length} / 1000`;
   textarea.addEventListener("input", () => {
     charCount.textContent = `${textarea.value.length} / 1000`;
   });
 
-  /* ---- pré-visualização do áudio ---- */
+  /* ==== AUDIO record / preview (unchanged logic) ==== */
   let recorder = null, chunks = [];
   let tempBlob = null, tempURL = null;
   let startTime = null, timerId = null, recordingDuration = 0, currentSize = 0;
@@ -457,9 +464,8 @@ function renderArtefact({ src, alt }) {
     }
   });
 
-  /* ---- Imagem: compressão + preview ---- */
+  /* ==== Image compress + preview ==== */
   imageBtn.addEventListener("click", () => imageInput.click());
-
   imageInput.addEventListener("change", async () => {
     const f = imageInput.files && imageInput.files[0];
     if (!f) return;
@@ -506,13 +512,13 @@ function renderArtefact({ src, alt }) {
 
       wrap.append(pimg, del);
       preview.appendChild(wrap);
-    } catch (e) {
+    } catch {
       alert("Erro ao processar a imagem.");
       imageInput.value = "";
     }
   });
 
-  /* ---- carregar mensagens ---- */
+  /* ==== Messages ==== */
   let currentPage = 0;
   loadMessages(artefactId, upper).then((hasMore) => {
     if (hasMore) loadMoreBtn.style.display = "block";
@@ -523,14 +529,14 @@ function renderArtefact({ src, alt }) {
     if (!hasMore) loadMoreBtn.style.display = "none";
   });
 
-  /* ---- publicar ---- */
+  /* ==== Publish ==== */
   publishBtn.addEventListener("click", async () => {
     publishBtn.disabled = true;
     await stopRecording();
 
     const comment = textarea.value.trim();
 
-    // áudio → base64 puro
+    // audio -> base64
     let audioBase64 = null;
     if (tempBlob) {
       if (tempBlob.size === 0 || tempBlob.size > MAX_AUDIO_BYTES) {
@@ -541,7 +547,7 @@ function renderArtefact({ src, alt }) {
       audioBase64 = await blobToBase64(tempBlob);
     }
 
-    // imagem → dataURL (mime + base64)
+    // image -> dataURL
     let imageBase64 = null;
     const picked = imageInput._blob;
     if (picked) {
@@ -572,19 +578,15 @@ function renderArtefact({ src, alt }) {
       const txt = await res.text();
       if (!res.ok) throw new Error(`HTTP ${res.status} – ${txt}`);
 
-      let json;
-      try { json = JSON.parse(txt); }
-      catch { throw new Error("Resposta inválida do servidor"); }
-
+      const json = JSON.parse(txt);
       const { success, id, delete_token } = json;
       if (!success) throw new Error("Falha ao publicar");
 
-      // memoriza token de exclusão
       const userMessages = JSON.parse(localStorage.getItem("userMessages") || "{}");
       userMessages[id] = delete_token;
       localStorage.setItem("userMessages", JSON.stringify(userMessages));
 
-      // reset UI
+      // reset
       textarea.value = "";
       nameInput.value = "";
       resetAudioPreview();
@@ -595,7 +597,7 @@ function renderArtefact({ src, alt }) {
       if (iPrev) iPrev.remove();
       imageInput.value = "";
 
-      // recarregar lista
+      // reload list
       Object.keys(messageCache).forEach((k) => k.startsWith(artefactId) && delete messageCache[k]);
       currentPage = 0;
       loadMessages(artefactId, upper).then((hasMore) => {
@@ -608,6 +610,7 @@ function renderArtefact({ src, alt }) {
     }
   });
 }
+
 
 /* =========================================================
    GALERIA + INFINITE SCROLL
@@ -887,6 +890,7 @@ document.addEventListener("click", (e) => {
 document.addEventListener("DOMContentLoaded", () => {
   loadArtefacts(); // carrega os 3 primeiros; o infinite scroll faz o resto
 });
+
 
 
 
