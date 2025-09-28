@@ -310,21 +310,21 @@ function renderArtefact({ src, alt }) {
   const fileSize  = lower.querySelector(".file-size");
   const toggleBtn = toolbar.querySelector('.toggle-mode');
 
-  /* ---- “Comentários primeiro” (retraído por padrão) ---- */
-  const stored = localStorage.getItem('collapsed:'+artefactId);
-  let collapsed = stored !== null ? JSON.parse(stored) : true;
+/* ---- “Comentários primeiro” (retraído por padrão) ---- */
+// Sempre começar REPLIÉ ao entrar na página
+let collapsed = true;                           // <— force closed by default
+panel.classList.toggle('collapsed', collapsed);
+toggleBtn.textContent = '✎ Escrever';
+toggleBtn.setAttribute('aria-expanded', 'false');
+
+// Alternar entre "Escrever" e "Comentários" (sem persistência)
+toggleBtn.addEventListener('click', () => {
+  collapsed = !collapsed;
   panel.classList.toggle('collapsed', collapsed);
   toggleBtn.textContent = collapsed ? '✎ Escrever' : '🗂️ Comentários';
   toggleBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+});
 
-  toggleBtn.addEventListener('click', () => {
-    collapsed = !collapsed;
-    panel.classList.toggle('collapsed', collapsed);
-    toggleBtn.textContent = collapsed ? '✎ Escrever' : '🗂️ Comentários';
-    toggleBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
-    localStorage.setItem('collapsed:'+artefactId, JSON.stringify(collapsed));
-    if (collapsed) upper.scrollTop = 0;
-  });
 
   /* ---- contador ---- */
   charCount.textContent = `${textarea.value.length} / 1000`;
@@ -746,3 +746,4 @@ document.addEventListener("click", (e) => {
 document.addEventListener("DOMContentLoaded", () => {
   loadArtefacts(); // carrega os 3 primeiros; o infinite scroll faz o resto
 });
+
