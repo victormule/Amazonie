@@ -231,68 +231,74 @@ async function deleteMessage(messageId, secretKey, artefactId, upperPanel, loadM
 /* =========================================================
    RENDER DE UM ARTEFATO (imagem + painel de comentários)
    ========================================================= */
-
 function renderArtefact({ src, alt }) {
   const artefactId = src.split('/').pop();
 
-  // ---- outer card + grid ----
-  const card  = document.createElement('div');
+  // 1) Carte unifiée
+  const card = document.createElement('div');
   card.className = 'artefact-card';
 
-  const grid  = document.createElement('div');
+  // 2) Grille interne (2 colonnes sur desktop, 1 colonne en mobile)
+  const grid = document.createElement('div');
   grid.className = 'artefact__grid';
   card.appendChild(grid);
 
-  // ---- left: image ----
+  // 3) Colonne image
   const media = document.createElement('div');
   media.className = 'artefact__media';
-  const img = document.createElement('img');
+  const img = new Image();
   img.src = src;
   img.alt = alt;
   img.loading = 'lazy';
   media.appendChild(img);
   grid.appendChild(media);
 
-  // ---- right: panel ----
+  // 4) Colonne panneau (même hauteur que l’image grâce à la CSS)
   const panel = document.createElement('div');
-  panel.className = 'panel';
+  panel.className = 'panel collapsed';     // replié par défaut à l’arrivée sur la page
+  grid.appendChild(panel);
 
-  // top toolbar (toggle button lives here)
+  // 4.a) Barre d’outils (toggle)
   const toolbar = document.createElement('div');
   toolbar.className = 'panel-toolbar';
-  toolbar.innerHTML = `<button type="button" class="toggle-mode" aria-expanded="false">✎ Escrever</button>`;
+  const toggleBtn = document.createElement('button');
+  toggleBtn.className = 'toggle-mode';
+  toggleBtn.type = 'button';
+  toggleBtn.innerHTML = '✏️ Escrever';
+  toggleBtn.addEventListener('click', () => {
+    const collapsed = panel.classList.toggle('collapsed');
+    toggleBtn.innerHTML = collapsed ? '✏️ Escrever' : '💬 Comentários';
+  });
+  toolbar.appendChild(toggleBtn);
   panel.appendChild(toolbar);
 
-  // list of comments
+  // 4.b) Liste des commentaires
   const upper = document.createElement('div');
   upper.className = 'panel-upper';
   panel.appendChild(upper);
 
-  // editor area
+  // 4.c) Zone d’édition
   const lower = document.createElement('div');
   lower.className = 'panel-lower';
   lower.innerHTML = `
     <input type="text" placeholder="Seu nome (opcional)" maxlength="50" />
     <textarea placeholder="Adicionar um comentário…" maxlength="1000"></textarea>
     <div class="char-count">0 / 1000</div>
-
     <div class="actions">
+      <button data-comments>💬 Comentários</button>
+      <button data-write>✏️ Escrever</button>
       <button data-publish>Publicar</button>
-      <button data-audio>🗣️ Gravar</button>
+      <button data-audio>🎙️ Gravar</button>
       <button data-image>🖼️ Importar imagem</button>
       <button class="loc-btn" data-artefact="${artefactId}">📍 Localizar</button>
-      <input type="file" accept="image/png,image/jpeg,image/webp" data-image-input style="display:none" />
     </div>
-
-    <div class="rec-info" style="display:none">
-      <span class="rec-time"></span>
-      <span class="file-size"></span>
-    </div>
+    <div class="rec-info"><span class="rec-time"></span><span class="file-size"></span></div>
     <div class="preview" data-preview></div>
+    <input type="file" accept="image/png,image/jpeg,image/webp" data-image-input style="display:none" />
   `;
   panel.appendChild(lower);
-  grid.appendChild(panel);
 
+  // 5) Injection dans la galerie
   gallery.appendChild(card);
 
   // “load more” button, under the list
@@ -890,6 +896,7 @@ document.addEventListener("click", (e) => {
 document.addEventListener("DOMContentLoaded", () => {
   loadArtefacts(); // carrega os 3 primeiros; o infinite scroll faz o resto
 });
+
 
 
 
