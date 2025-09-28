@@ -649,7 +649,7 @@ let map;                       // instance Leaflet
 let osmLayer, esriSatLayer;    // camadas de tiles
 let currentMarker = null;      // marcador temporário
 let currentArtefactId = null;  // artefato atual
-const markersById = new Map(); // id -> marker exibido
+const markersById = new Map(); // id(normalizado) -> marker exibido
 
 /* tokens de exclusão para marcadores do usuário */
 function getUserLocationsMap(){
@@ -668,6 +668,29 @@ function removeUserLocationToken(id){
 function getUserToken(id){
   return getUserLocationsMap()[id] || null;
 }
+
+/* --- Icônes de marqueurs (SVG inline) --- */
+function svgPin({ fill = '#3b82f6', stroke = '#111827' } = {}) {
+  const path = "M16,1 C7.7,1 1,7.7 1,16 c0,10.5 15,31 15,31 s15-20.5 15-31 C31,7.7 24.3,1 16,1 z";
+  const svg = `
+    <svg xmlns='http://www.w3.org/2000/svg' width='32' height='48' viewBox='0 0 32 48'>
+      <path d='${path}' fill='${fill}' stroke='${stroke}' stroke-width='2'/>
+      <circle cx='16' cy='16' r='5' fill='white' />
+    </svg>`;
+  return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+}
+const iconOther = L.icon({
+  iconUrl: svgPin({ fill: '#3b82f6' }),      // bleu = autres
+  iconSize: [32,48], iconAnchor: [16,47], popupAnchor: [0,-40]
+});
+const iconMine = L.icon({
+  iconUrl: svgPin({ fill: '#f59e0b' }),      // orange = mes marqueurs
+  iconSize: [32,48], iconAnchor: [16,47], popupAnchor: [0,-40]
+});
+const iconTemp = L.icon({
+  iconUrl: svgPin({ fill: '#10b981' }),      // vert = marqueur temporaire (drag)
+  iconSize: [32,48], iconAnchor: [16,47], popupAnchor: [0,-40]
+});
 
 async function openMap(artefactId) {
   currentArtefactId = artefactId;
@@ -689,10 +712,10 @@ async function openMap(artefactId) {
     map = L.map("leaflet-container", { center: [-3, -63], zoom: 5, layers: [osmLayer] });
     L.control.layers({ "Mapa": osmLayer, "Satélite": esriSatLayer }).addTo(map);
 
-    // click → coloca/ move marcador temporário
+    // click → coloca/ move marcador temporário (icone vert)
     map.on("click", (e) => {
       if (currentMarker) map.removeLayer(currentMarker);
-      currentMarker = L.marker(e.latlng, { draggable: true }).addTo(map);
+      currentMarker = L.marker(e.latlng, { draggable: true, icon: iconTemp }).addTo(map);
     });
 
     // ESC fecha
@@ -721,14 +744,14 @@ async function openMap(artefactId) {
 
     points.forEach((p) => {
       const owned = !!getUserToken(p.id);
-      const m = L.marker([p.lat, p.lng]).addTo(map);
-      markersById.set(keyId(p.id), m);
-console.log('[map] add marker key=', keyId(p.id));
-
+      // icône orange si c'est “à moi”, sinon bleu
+      const m = L.marker([p.lat, p.lng], { icon: owned ? iconMine : iconOther }).addTo(map);
+      const k = keyId(p.id);                    // normalise en string
+      markersById.set(k, m);
 
       const dateStr = new Date(p.created_at).toLocaleDateString();
       const controls = owned
-        ? `<div style="margin-top:.4rem"><button class="loc-del" data-id="${p.id}">🗑️ Excluir</button></div>`
+        ? `<div style="margin-top:.4rem"><button class="loc-del" data-id="${k}">🗑️ Excluir</button></div>`
         : "";
       m.bindPopup(`${p.author || "Anônimo"}<br>${dateStr}${controls}`);
     });
@@ -785,13 +808,15 @@ document.getElementById('saveLoc').addEventListener('click', async () => {
     if (json && json.success && json.id && json.delete_token) {
       setUserLocationToken(json.id, json.delete_token);
 
-      // adiciona imediatamente o novo marcador “do usuário”
-      const m = L.marker([lat, lng]).addTo(map);
-      markersById.set(keyId(json.id), m);
-console.log('[map] add marker (new) key=', keyId(json.id));
+      // adiciona imediatamente o novo marcador “do usuário” (icone orange)
+      const k = keyId(json.id);
+      const m = L.marker([lat, lng], { icon: iconMine }).addTo(map);
+      markersById.set(k, m);
 
       const dateStr = new Date().toLocaleDateString();
-      m.bindPopup(`${author || "Anônimo"}<br>${dateStr}<div style="margin-top:.4rem"><button class="loc-del" data-id="${json.id}">🗑️ Excluir</button></div>`);
+      m.bindPopup(`${author || "Anônimo"}<br>${dateStr}
+        <div style="margin-top:.4rem"><button class="loc-del" data-id="${k}">🗑️ Excluir</button></div>`);
+
       map.removeLayer(currentMarker);
       currentMarker = null;
     } else {
@@ -813,52 +838,43 @@ if (!window.__locDelBound) {
     const btn = e.target.closest('.loc-del');
     if (!btn) return;
 
-const id = btn.dataset.id;              // string depuis data-id
-const k  = keyId(id);                   // normalisé (string)
+    const id = btn.dataset.id;              // string desde data-id
+    const k  = keyId(id);                   // normalizado (string)
 
-console.log('[map] delete click id=', id, 'hasKey=', markersById.has(k),
-            'keys=', Array.from(markersById.keys()));
+    const token = getUserToken(id);
+    if (!token) { alert("Token ausente para este marcador."); return; }
+    if (!confirm('Tem certeza que deseja excluir este marcador?')) return;
 
-const token = getUserToken(id);
-if (!token) { alert("Token ausente para este marcador."); return; }
-if (!confirm('Tem certeza que deseja excluir este marcador?')) return;
+    try {
+      const r = await fetch('/.netlify/functions/delete-location', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, delete_token: token })
+      });
+      const txt = await r.text();
+      if (!r.ok) throw new Error(txt);
 
-try {
-  const r = await fetch('/.netlify/functions/delete-location', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id, delete_token: token })
-  });
-  const txt = await r.text();
-  if (!r.ok) throw new Error(txt);
-
-  // ✅ suppression live
-  const m = markersById.get(k);
-  if (m) {
-    try { m.closePopup(); } catch {}
-    m.remove();
-    markersById.delete(k);
-    console.log('[map] removed marker key=', k);
-  } else {
-    console.warn('[map] marker not found in cache for key=', k);
-    // (optionnel) petit fallback : retire un marker dont le popup contient data-id
-    let removed = false;
-    map.eachLayer(l => {
-      if (l instanceof L.Marker && l.getPopup()) {
-        const html = l.getPopup().getContent();
-        if (typeof html === 'string' && html.includes(`data-id="${k}"`)) {
-          l.remove(); removed = true;
-        }
+      // remoção imediata
+      const m = markersById.get(k);
+      if (m) {
+        try { m.closePopup(); } catch {}
+        m.remove();
+        markersById.delete(k);
+      } else {
+        // fallback: varre os layers para remover aquele cujo popup contém o data-id
+        map.eachLayer(l => {
+          if (l instanceof L.Marker && l.getPopup()) {
+            const html = l.getPopup().getContent();
+            if (typeof html === 'string' && html.includes(`data-id="${k}"`)) {
+              l.remove();
+            }
+          }
+        });
       }
-    });
-    if (removed) console.log('[map] removed via fallback for key=', k);
-  }
-
-  removeUserLocationToken(id);
-} catch (err) {
-  alert("Erro ao excluir: " + err.message);
-}
-
+      removeUserLocationToken(id);
+    } catch (err) {
+      alert("Erro ao excluir: " + err.message);
+    }
   });
 }
 
@@ -868,10 +884,12 @@ document.addEventListener("click", (e) => {
   if (btn) openMap(btn.dataset.artefact);
 });
 
+
 /* =========================================================
    BOOT
    ========================================================= */
 document.addEventListener("DOMContentLoaded", () => {
   loadArtefacts(); // carrega os 3 primeiros; o infinite scroll faz o resto
 });
+
 
