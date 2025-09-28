@@ -642,14 +642,14 @@ function checkScrollPosition() {
 window.addEventListener("scroll", checkScrollPosition);
 
 /* =========================================================
-   MODAL MAPA (Leaflet)
+   MODAL MAPA (Leaflet) — Mapa par défaut + SUPPRIMER (live)
    ========================================================= */
 
-let map;                      // instance Leaflet
-let osmLayer, esriSatLayer;   // tuiles
-let currentMarker = null;     // marqueur temporaire (non sauvegardé)
-let currentArtefactId = null; // id de l’artefact courant
-let markersById = new Map();  // id -> marker affiché
+let map;                       // instance Leaflet
+let osmLayer, esriSatLayer;    // couches tuiles
+let currentMarker = null;      // marqueur temporaire (non sauvegardé)
+let currentArtefactId = null;  // artefact courant
+let markersById = new Map();   // id -> marker affiché
 
 /* --- tokens de suppression pour les marqueurs de l'utilisateur --- */
 function getUserLocationsMap(){
@@ -673,11 +673,11 @@ async function openMap(artefactId) {
   currentArtefactId = artefactId;
   const modal = document.getElementById('map-modal');
   modal.style.display = 'flex';
-  modal.removeAttribute('aria-hidden');      // a11y : modal visible
+  modal.removeAttribute('aria-hidden');
   modal.removeAttribute('inert');
   document.getElementById('closeMap').onclick = closeMap;
 
-  // Créer la carte 1x — par défaut = OSM (Mapa)
+  // 1) Créer la carte une seule fois — PAR DÉFAUT = OSM (Mapa)
   if (!map) {
     osmLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: "© OpenStreetMap", maxZoom: 19
@@ -686,14 +686,10 @@ async function openMap(artefactId) {
       "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
       { attribution: "Tiles © Esri", maxZoom: 19 }
     );
-    map = L.map("leaflet-container", {
-      center: [-3, -63],
-      zoom: 5,
-      layers: [osmLayer],  // 👈 Mapa par défaut
-    });
+    map = L.map("leaflet-container", { center: [-3, -63], zoom: 5, layers: [osmLayer] });
     L.control.layers({ "Mapa": osmLayer, "Satélite": esriSatLayer }).addTo(map);
 
-    // Clic → place/déplace le marqueur temporaire
+    // Clic → marqueur temporaire
     map.on("click", (e) => {
       if (currentMarker) map.removeLayer(currentMarker);
       currentMarker = L.marker(e.latlng, { draggable: true }).addTo(map);
@@ -704,7 +700,7 @@ async function openMap(artefactId) {
       if (modal.style.display !== 'none' && ev.key === 'Escape') closeMap();
     });
   } else {
-    // re-bascule sur OSM si on était en satellite
+    // re-bascule sur OSM à l’ouverture si nécessaire
     if (!map.hasLayer(osmLayer)) {
       if (map.hasLayer(esriSatLayer)) map.removeLayer(esriSatLayer);
       osmLayer.addTo(map);
@@ -712,12 +708,12 @@ async function openMap(artefactId) {
     setTimeout(() => map.invalidateSize(), 100);
   }
 
-  // Purge des anciens marqueurs (on garde les tuiles)
+  // 2) Purge des anciens marqueurs (on garde les tuiles)
   map.eachLayer(l => { if (!(l instanceof L.TileLayer)) map.removeLayer(l); });
   markersById.clear();
   currentMarker = null;
 
-  // Charger & afficher les points existants
+  // 3) Charger les points
   try {
     const url = `/.netlify/functions/get-locations?artefact=${artefactId}`;
     const res = await fetch(url, { cache: "no-store" });
@@ -733,41 +729,9 @@ async function openMap(artefactId) {
         ? `<div style="margin-top:.4rem"><button class="loc-del" data-id="${p.id}">🗑️ Excluir</button></div>`
         : "";
       m.bindPopup(`${p.author || "Anônimo"}<br>${dateStr}${controls}`);
-
-      // Attache le listener quand le popup s’ouvre
-      m.on('popupopen', () => {
-        const root = m.getPopup().getElement();
-        const btn = root && root.querySelector('.loc-del');
-        if (btn) {
-          btn.addEventListener('click', async () => {
-            const token = getUserToken(p.id);
-            if (!token) { alert("Token ausente para este marcador."); return; }
-            if (!confirm('Tem certeza que deseja excluir este marcador?')) return;
-
-            try {
-              const r = await fetch('/.netlify/functions/delete-location', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: p.id, delete_token: token })
-              });
-              const txt = await r.text();
-              if (!r.ok) throw new Error(txt);
-
-              // ✅ suppression live
-              map.removeLayer(m);
-              markersById.delete(p.id);
-              removeUserLocationToken(p.id);
-              // fermer le popup proprement
-              try { m.closePopup(); } catch {}
-            } catch (err) {
-              alert("Erro ao excluir: " + err.message);
-            }
-          }, { once: true }); // évite doublons de listeners
-        }
-      });
     });
 
-    // Fit bounds sur les marqueurs présents
+    // Fit bounds
     const liveMarkers = [];
     map.eachLayer(l => { if (!(l instanceof L.TileLayer)) liveMarkers.push(l); });
     if (liveMarkers.length) {
@@ -783,13 +747,13 @@ async function openMap(artefactId) {
 
 function closeMap() {
   const modal = document.getElementById('map-modal');
-  // éviter l’avertissement aria-hidden avec un focus dedans
+  // éviter le warning aria-hidden: retirer le focus interne
   if (modal.contains(document.activeElement)) {
     document.activeElement.blur();
     document.body.focus?.();
   }
   modal.style.display = 'none';
-  modal.setAttribute('aria-hidden', 'true'); // a11y
+  modal.setAttribute('aria-hidden', 'true');
   modal.setAttribute('inert', '');
   if (currentMarker) { map.removeLayer(currentMarker); currentMarker = null; }
 }
@@ -813,52 +777,21 @@ document.getElementById('saveLoc').addEventListener('click', async () => {
     const txt = await res.text();
     if (!res.ok) throw new Error(txt);
 
-    // On attend { success, id, delete_token }
+    // { success, id, delete_token }
     let json = {};
     try { json = JSON.parse(txt); } catch {}
     if (json && json.success && json.id && json.delete_token) {
       setUserLocationToken(json.id, json.delete_token);
 
-      // ✅ Ajoute immédiatement le nouveau marqueur “possédé” avec bouton Excluir
+      // Ajout instantané du marqueur “possédé” (+ popup avec bouton)
       const m = L.marker([lat, lng]).addTo(map);
       markersById.set(json.id, m);
-      const today = new Date().toLocaleDateString();
-      m.bindPopup(`${author || "Anônimo"}<br>${today}<div style="margin-top:.4rem"><button class="loc-del" data-id="${json.id}">🗑️ Excluir</button></div>`);
-      // retire le marqueur temporaire
+      const dateStr = new Date().toLocaleDateString();
+      m.bindPopup(`${author || "Anônimo"}<br>${dateStr}<div style="margin-top:.4rem"><button class="loc-del" data-id="${json.id}">🗑️ Excluir</button></div>`);
       map.removeLayer(currentMarker);
       currentMarker = null;
-
-      // branche le listener de suppression pour ce nouveau marker
-      m.on('popupopen', () => {
-        const root = m.getPopup().getElement();
-        const btn = root && root.querySelector('.loc-del');
-        if (btn) {
-          btn.addEventListener('click', async () => {
-            const token = getUserToken(json.id);
-            if (!token) { alert("Token ausente para este marcador."); return; }
-            if (!confirm('Tem certeza que deseja excluir este marcador?')) return;
-
-            try {
-              const r = await fetch('/.netlify/functions/delete-location', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: json.id, delete_token: token })
-              });
-              const t = await r.text();
-              if (!r.ok) throw new Error(t);
-
-              map.removeLayer(m);
-              markersById.delete(json.id);
-              removeUserLocationToken(json.id);
-              try { m.closePopup(); } catch {}
-            } catch (err) {
-              alert("Erro ao excluir: " + err.message);
-            }
-          }, { once: true });
-        }
-      });
     } else {
-      // fallback : recharger
+      // fallback
       alert("Localização salva!");
       openMap(currentArtefactId);
       return;
@@ -867,6 +800,39 @@ document.getElementById('saveLoc').addEventListener('click', async () => {
     alert("Localização salva!");
   } catch (err) {
     alert("Erro: " + err.message);
+  }
+});
+
+/* === DÉLÉGATION GLOBALE : suppression d’un marqueur ===
+   (plus de listener par-popup ; fonctionne après ré-ouvertures) */
+document.addEventListener("click", async (e) => {
+  const btn = e.target.closest('.loc-del');
+  if (!btn) return;
+
+  const id = btn.dataset.id;
+  const token = getUserToken(id);
+  if (!token) { alert("Token ausente para este marcador."); return; }
+  if (!confirm('Tem certeza que deseja excluir este marcador?')) return;
+
+  try {
+    const r = await fetch('/.netlify/functions/delete-location', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, delete_token: token })
+    });
+    const txt = await r.text();
+    if (!r.ok) throw new Error(txt);
+
+    // ✅ suppression immédiate dans la carte & dans l’état local
+    const m = markersById.get(id);
+    if (m) {
+      try { m.closePopup(); } catch {}
+      map.removeLayer(m);
+      markersById.delete(id);
+    }
+    removeUserLocationToken(id);
+  } catch (err) {
+    alert("Erro ao excluir: " + err.message);
   }
 });
 
@@ -991,6 +957,7 @@ document.addEventListener("click", (e) => {
 document.addEventListener("DOMContentLoaded", () => {
   loadArtefacts(); // carrega os 3 primeiros; o infinite scroll faz o resto
 });
+
 
 
 
