@@ -672,6 +672,9 @@ async function openMap(artefactId) {
   currentArtefactId = artefactId;
   const modal = $("#map-modal");
   modal.style.display = "flex";
+   modal.removeAttribute('aria-hidden');  // modal visible = pas aria-hidden
+document.getElementById('closeMap').focus?.(); // optionnel : focus dans le modal
+
 
   $("#closeMap").onclick = closeMap;
 
@@ -757,6 +760,10 @@ function closeMap() {
   $("#map-modal").style.display = "none";
   if (currentMarker) { map.removeLayer(currentMarker); currentMarker = null; }
 }
+
+const modal = document.getElementById('map-modal');
+modal.style.display = 'none';
+modal.setAttribute('aria-hidden', 'true'); // re-cache pour les SR
 
 /* Salvar novo ponto (botão 💾) */
 $("#saveLoc").addEventListener("click", async () => {
@@ -905,5 +912,6 @@ document.addEventListener("click", (e) => {
 document.addEventListener("DOMContentLoaded", () => {
   loadArtefacts(); // carrega os 3 primeiros; o infinite scroll faz o resto
 });
+
 
 
