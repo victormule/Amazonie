@@ -233,65 +233,61 @@ async function deleteMessage(messageId, secretKey, artefactId, upperPanel, loadM
    ========================================================= */
 
 function renderArtefact({ src, alt }) {
-  const artefactId = src.split("/").pop();
+  const artefactId = src.split('/').pop();
 
-  const row = document.createElement("div");
-  row.className = "artefact";
+  // ---- carte conteneur (cadre commun) ----
+  const card  = document.createElement('div');
+  card.className = 'artefact-card';
 
-  // coluna imagem
+  const grid  = document.createElement('div');
+  grid.className = 'artefact__grid';
+  card.appendChild(grid);
+
+  // ---- colonne image ----
   const media = document.createElement('div');
   media.className = 'artefact__media';
   const img = document.createElement('img');
-  img.alt = alt;
   img.src = src;
+  img.alt = alt;
   img.loading = 'lazy';
   media.appendChild(img);
-  row.appendChild(media);
+  grid.appendChild(media);
 
-  // painel
-  const panel = document.createElement("div");
-  panel.className = "panel";
-
-  // toolbar (toggle escrever/comentários)
-  const toolbar = document.createElement('div');
-  toolbar.className = 'panel-toolbar';
-  toolbar.innerHTML = `
-    <button class="toggle-mode" aria-expanded="false" title="Alternar modo">
-      ✎ Escrever
-    </button>
-  `;
-  panel.appendChild(toolbar);
-
-  // parte de cima (lista de comentários, scroll interno)
-  const upper = document.createElement("div");
-  upper.className = "panel-upper";
+  // ---- colonne panneau commentaires ----
+  const panel = document.createElement('div');
+  panel.className = 'panel';
+  const upper = document.createElement('div');
+  upper.className = 'panel-upper';
   panel.appendChild(upper);
 
-  // parte de baixo (entrada e botões)
-  const lower = document.createElement("div");
-  lower.className = "panel-lower";
+  const lower = document.createElement('div');
+  lower.className = 'panel-lower';
   lower.innerHTML = `
     <input type="text" placeholder="Seu nome (opcional)" maxlength="50" />
     <textarea placeholder="Adicionar um comentário…" maxlength="1000"></textarea>
     <div class="char-count">0 / 1000</div>
 
     <div class="actions">
-      <button data-publish>Publicar</button>
+      <button data-toggle>🗂️ Comentários</button>
+      <button data-compose>✍️ Escrever</button>
+      <button data-publish style="background:#ffb133">Publicar</button>
       <button data-audio>🗣️ Gravar</button>
       <button data-image>🖼️ Importar imagem</button>
       <button class="loc-btn" data-artefact="${artefactId}">📍 Localizar</button>
+      <input type="file" accept="image/png,image/jpeg,image/webp" data-image-input style="display:none" />
     </div>
 
-    <input type="file" accept="image/png,image/jpeg,image/webp" data-image-input style="display:none" />
-
-    <div class="rec-info"><span class="rec-time"></span><span class="file-size"></span></div>
+    <div class="rec-info" style="display:none">
+      <span class="rec-time"></span>
+      <span class="file-size"></span>
+    </div>
     <div class="preview" data-preview></div>
   `;
   panel.appendChild(lower);
+  grid.appendChild(panel);
 
-  row.appendChild(panel);
-  gallery.appendChild(row);
-
+  // Ajoute la carte complète dans la galerie
+  gallery.appendChild(card);
   // Botão "carregar mais"
   const loadMoreBtn = document.createElement("button");
   loadMoreBtn.textContent = "Carregar mais comentários";
@@ -891,5 +887,6 @@ document.addEventListener("click", (e) => {
 document.addEventListener("DOMContentLoaded", () => {
   loadArtefacts(); // carrega os 3 primeiros; o infinite scroll faz o resto
 });
+
 
 
