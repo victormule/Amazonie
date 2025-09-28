@@ -577,11 +577,12 @@ button[disabled] { opacity: .6; cursor: not-allowed; }
   background: var(--accent);
 }
 .actions [data-publish]{
-  background: #ffb020;               /* un poil plus lumineux que var(--accent) */
+  background: #ff7520;               /* un poil plus lumineux que var(--accent) */
 }
 .actions [data-publish]:hover{
   filter: brightness(1.08);
 }
+
 
 
 
