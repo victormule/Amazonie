@@ -644,4 +644,16 @@ button[disabled] { opacity: .6; cursor: not-allowed; }
   margin:.5rem 0 0;
 }
 
+/* default buttons */
+.actions button{ background: var(--accent); }
+
+/* Publicar = slightly red/orange */
+.actions [data-publish]{
+  background: #ff6a00;       /* plus rouge que l’accent */
+}
+.actions [data-publish]:hover{
+  filter: brightness(1.08);
+}
+
+
 
