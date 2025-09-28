@@ -1,5 +1,5 @@
 /* =========================================================
-   Quai Branly – Memória & Alma
+   Quai Branly – Memória & Alma  |  app.js
    ========================================================= */
 
 /* ======= CONFIG ======= */
@@ -9,7 +9,7 @@ const WARNING_THRESHOLD = 0.8 * MAX_AUDIO_BYTES;
 const CRITICAL_THRESHOLD = 0.95 * MAX_AUDIO_BYTES;
 const RECORDING_TIMESLICE = 1000;            // ms
 
-// Artefacts de la galerie
+// Artefatos da galeria
 const IMAGES = [
   { src: "assets/image1.png",  alt: "Peitoral de penas e contas" },
   { src: "assets/image2.png",  alt: "Cinto trançado com penas" },
@@ -50,7 +50,7 @@ const formatFileSize = (bytes) => {
   return mb.toFixed(2) + " MB";
 };
 
-/* ---- compression image côté client ≤ 400 KB ---------------- */
+/* ---- compressão de imagem ≤ 400 KB --------------------- */
 async function compressImage(file, {
   maxWidth = 1600,
   maxHeight = 1600,
@@ -70,14 +70,14 @@ async function compressImage(file, {
   const toBlob = (canvas, type, q) =>
     new Promise((resolve) => canvas.toBlob((b) => resolve(b), type, q));
 
-  // Choix du type de sortie (WebP si supporté sinon JPEG)
+  // tipo de saída (WebP se suportado)
   let outType = preferType;
   try {
     const probe = document.createElement('canvas').toDataURL(preferType);
     if (!probe.startsWith(`data:${preferType}`)) outType = 'image/jpeg';
   } catch { outType = 'image/jpeg'; }
 
-  // 1) redimensionner pour tenir dans maxWidth/maxHeight
+  // 1) Redimensionar
   const scale = Math.min(1, maxWidth / img.width, maxHeight / img.height);
   let w = Math.max(1, Math.round(img.width * scale));
   let h = Math.max(1, Math.round(img.height * scale));
@@ -87,15 +87,13 @@ async function compressImage(file, {
   canvas.width = w; canvas.height = h;
   ctx.drawImage(img, 0, 0, w, h);
 
-  // 2) baisser la qualité puis réduire dimensions si nécessaire
+  // 2) Ajustar qualidade e dimensões até caber
   let q = initialQuality;
   let blob = await toBlob(canvas, outType, q);
-  // baisser qualité
   while (blob && blob.size > maxBytes && q > 0.4) {
     q -= 0.08;
     blob = await toBlob(canvas, outType, q);
   }
-  // réduire dimensions par itérations si encore trop lourd
   let dimIter = 0;
   while (blob && blob.size > maxBytes && dimIter < 5) {
     dimIter++;
@@ -119,11 +117,11 @@ async function compressImage(file, {
 const gallery = $("#gallery");
 const loadingIndicator = $("#loading-indicator");
 const messageCache = {};     // { `${artefactId}-${page}` : [messages] }
-let currentIndex = 0;        // pour la galerie
+let currentIndex = 0;        // para a galeria
 let isLoading = false;
 
 /* =========================================================
-   RENDER DES MESSAGES
+   RENDER DE MENSAGENS
    ========================================================= */
 
 function renderMessages(messages, container, artefactId, loadMoreBtn, clearContainer = true) {
@@ -144,7 +142,7 @@ function renderMessages(messages, container, artefactId, loadMoreBtn, clearConta
       div.innerHTML += `<p style="margin:0 0 .5rem">${m.comment}</p>`;
     }
 
-    // Audio (lazy)
+    // Áudio (lazy)
     if (m.audio_path) {
       const audioContainer = document.createElement("div");
       audioContainer.className = "audio-lazy";
@@ -160,7 +158,7 @@ function renderMessages(messages, container, artefactId, loadMoreBtn, clearConta
       div.appendChild(audioContainer);
     }
 
-    // Image
+    // Imagem
     if (m.image_path) {
       const imgWrap = document.createElement("div");
       imgWrap.className = "comment-media";
@@ -174,7 +172,7 @@ function renderMessages(messages, container, artefactId, loadMoreBtn, clearConta
       div.appendChild(imgWrap);
     }
 
-    // Supprimer
+    // Excluir (se a mensagem pertence ao usuário)
     if (userMessages[m.id]) {
       const del = document.createElement("button");
       del.className = "delete-btn";
@@ -194,12 +192,10 @@ async function loadMessages(artefactId, upper, page = 0, limit = 10) {
     renderMessages(messageCache[cacheKey], upper, artefactId, null, page === 0);
     return messageCache[cacheKey].length === limit;
   }
-  console.log("[messages] fetch get-messages", { artefactId, page, limit });
   const res = await fetch(
     `/.netlify/functions/get-messages?artefact=${encodeURIComponent(artefactId)}&page=${page}&limit=${limit}`
   );
   const data = await res.json();
-  console.log("[messages] fetched", data.length);
   messageCache[cacheKey] = data;
   renderMessages(data, upper, artefactId, null, page === 0);
   return data.length === limit;
@@ -208,13 +204,11 @@ async function loadMessages(artefactId, upper, page = 0, limit = 10) {
 async function deleteMessage(messageId, secretKey, artefactId, upperPanel, loadMoreBtn) {
   if (!confirm("Tem certeza que deseja excluir este comentário?")) return;
   try {
-    console.log("[delete] request", { id: messageId });
     const res = await fetch("/.netlify/functions/delete-message", {
       method: "POST",
       body: JSON.stringify({ id: messageId, delete_token: secretKey }),
     });
     const result = await res.text();
-    console.log("[delete] response:", result);
     if (result === "ok") {
       const userMessages = JSON.parse(localStorage.getItem("userMessages") || "{}");
       delete userMessages[messageId];
@@ -232,127 +226,118 @@ async function deleteMessage(messageId, secretKey, artefactId, upperPanel, loadM
 }
 
 /* =========================================================
-   RENDER D’UN ARTEFACT (image + panneau de commentaires)
+   RENDER DE UM ARTEFATO (imagem + painel de comentários)
    ========================================================= */
 
 function renderArtefact({ src, alt }) {
   const artefactId = src.split("/").pop();
-  const LOG = (...args) => console.log(`[${artefactId}]`, ...args);
-  LOG("render");
 
   const row = document.createElement("div");
   row.className = "artefact";
 
-const media = document.createElement('div');
-media.className = 'artefact__media';
+  // coluna imagem
+  const media = document.createElement('div');
+  media.className = 'artefact__media';
+  const img = document.createElement('img');
+  img.alt = alt;
+  img.src = src;
+  img.loading = 'lazy';
+  media.appendChild(img);
+  row.appendChild(media);
 
-const img = document.createElement('img');
-img.alt = alt;
-img.src = src;
-img.loading = 'lazy';
+  // painel
+  const panel = document.createElement("div");
+  panel.className = "panel";
 
-media.appendChild(img);
-row.appendChild(media);
+  // toolbar (toggle escrever/comentários)
+  const toolbar = document.createElement('div');
+  toolbar.className = 'panel-toolbar';
+  toolbar.innerHTML = `
+    <button class="toggle-mode" aria-expanded="false" title="Alternar modo">
+      ✎ Escrever
+    </button>
+  `;
+  panel.appendChild(toolbar);
 
-
-const panel = document.createElement("div");
-panel.className = "panel";
-
-/* ⬇️ Barre d'outils + bouton de repli */
-const toolbar = document.createElement('div');
-toolbar.className = 'panel-toolbar';
-toolbar.innerHTML = `
-  <button class="toggle-mode" aria-expanded="true" title="Afficher uniquement les commentaires">
-    🗂️ Commentaires seulement
-  </button>
-`;
-panel.appendChild(toolbar);
-
-
+  // parte de cima (lista de comentários, scroll interno)
   const upper = document.createElement("div");
   upper.className = "panel-upper";
   panel.appendChild(upper);
 
+  // parte de baixo (entrada e botões)
   const lower = document.createElement("div");
   lower.className = "panel-lower";
-lower.innerHTML = `
-  <input type="text" placeholder="Seu nome (opcional)" maxlength="50" />
-  <textarea placeholder="Adicionar um comentário…" maxlength="1000"></textarea>
-  <div class="char-count">0 / 1000</div>
+  lower.innerHTML = `
+    <input type="text" placeholder="Seu nome (opcional)" maxlength="50" />
+    <textarea placeholder="Adicionar um comentário…" maxlength="1000"></textarea>
+    <div class="char-count">0 / 1000</div>
 
-  <div class="actions">
-    <button data-publish>Publier</button>
-    <button data-audio>🗣️ Enregistrer</button>
-    <button data-image>🖼️ Importer une image</button>
-    <button class="loc-btn" data-artefact="${artefactId}">📍 Trouver</button>
-  </div>
+    <div class="actions">
+      <button data-publish>Publicar</button>
+      <button data-audio>🗣️ Gravar</button>
+      <button data-image>🖼️ Importar imagem</button>
+      <button class="loc-btn" data-artefact="${artefactId}">📍 Localizar</button>
+    </div>
 
-  <!-- ⬇️ input caché requis -->
-  <input type="file" accept="image/png,image/jpeg,image/webp" data-image-input style="display:none" />
+    <input type="file" accept="image/png,image/jpeg,image/webp" data-image-input style="display:none" />
 
-  <div class="rec-info"><span class="rec-time"></span><span class="file-size"></span></div>
-  <div class="preview" data-preview></div>
-`;
-
+    <div class="rec-info"><span class="rec-time"></span><span class="file-size"></span></div>
+    <div class="preview" data-preview></div>
+  `;
   panel.appendChild(lower);
+
   row.appendChild(panel);
   gallery.appendChild(row);
-const toggleBtn = toolbar.querySelector('.toggle-mode');
 
-/* État mémorisé par artefact */
-let collapsed = JSON.parse(localStorage.getItem('collapsed:'+artefactId) || 'false');
-if (collapsed) {
-  panel.classList.add('collapsed');
-  toggleBtn.textContent = '✎ Écrire';
-  toggleBtn.setAttribute('aria-expanded','false');
-}
-
-/* Toggle */
-toggleBtn.addEventListener('click', () => {
-  collapsed = !collapsed;
-  panel.classList.toggle('collapsed', collapsed);
-  toggleBtn.textContent = collapsed ? '✎ Écrire' : '🗂️ Commentaires seulement';
-  toggleBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
-  localStorage.setItem('collapsed:'+artefactId, JSON.stringify(collapsed));
-  // petit confort : revenir en haut des commentaires en mode "commentaires seulement"
-  if (collapsed) upper.scrollTop = 0;
-});
-
-  // Bouton charger plus
+  // Botão "carregar mais"
   const loadMoreBtn = document.createElement("button");
   loadMoreBtn.textContent = "Carregar mais comentários";
   loadMoreBtn.className = "load-more-comments";
   loadMoreBtn.style.display = "none";
   upper.after(loadMoreBtn);
 
-  // Références
+  /* --- referências --- */
   const nameInput = lower.querySelector("input");
-  const textarea = lower.querySelector("textarea");
-  const publishBtn = lower.querySelector("[data-publish]");
-  const audioBtn = lower.querySelector("[data-audio]");
-  const imageBtn = lower.querySelector("[data-image]");
-  const imageInput = lower.querySelector("[data-image-input]");
-  const preview = lower.querySelector("[data-preview]");
+  const textarea  = lower.querySelector("textarea");
+  const publishBtn= lower.querySelector("[data-publish]");
+  const audioBtn  = lower.querySelector("[data-audio]");
+  const imageBtn  = lower.querySelector("[data-image]");
+  const imageInput= lower.querySelector("[data-image-input]");
+  const preview   = lower.querySelector("[data-preview]");
   const charCount = lower.querySelector(".char-count");
-  const recInfo = lower.querySelector(".rec-info");
+  const recInfo   = lower.querySelector(".rec-info");
   const timerSpan = lower.querySelector(".rec-time");
-  const fileSize = lower.querySelector(".file-size");
+  const fileSize  = lower.querySelector(".file-size");
+  const toggleBtn = toolbar.querySelector('.toggle-mode');
 
-  /* ---- State local pour CE panneau ---- */
-  let currentPage = 0;
+  /* ---- “Comentários primeiro” (retraído por padrão) ---- */
+  const stored = localStorage.getItem('collapsed:'+artefactId);
+  let collapsed = stored !== null ? JSON.parse(stored) : true;
+  panel.classList.toggle('collapsed', collapsed);
+  toggleBtn.textContent = collapsed ? '✎ Escrever' : '🗂️ Comentários';
+  toggleBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
 
-  // Audio
-  let recorder = null, chunks = [];
-  let tempBlob = null, tempURL = null;
-  let startTime = null, timerId = null, recordingDuration = 0, currentSize = 0;
+  toggleBtn.addEventListener('click', () => {
+    collapsed = !collapsed;
+    panel.classList.toggle('collapsed', collapsed);
+    toggleBtn.textContent = collapsed ? '✎ Escrever' : '🗂️ Comentários';
+    toggleBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    localStorage.setItem('collapsed:'+artefactId, JSON.stringify(collapsed));
+    if (collapsed) upper.scrollTop = 0;
+  });
 
-  /* ---- UI : compteur ---- */
+  /* ---- contador ---- */
   charCount.textContent = `${textarea.value.length} / 1000`;
   textarea.addEventListener("input", () => {
     charCount.textContent = `${textarea.value.length} / 1000`;
   });
 
-  /* ---- Préviews : audio ---- */
+  /* ---- pré-visualização do áudio ---- */
+  let recorder = null, chunks = [];
+  let tempBlob = null, tempURL = null;
+  let startTime = null, timerId = null, recordingDuration = 0, currentSize = 0;
+  recInfo.style.display = "none";
+
   function resetAudioPreview() {
     if (tempURL) { URL.revokeObjectURL(tempURL); tempURL = null; }
     tempBlob = null;
@@ -381,87 +366,11 @@ toggleBtn.addEventListener('click', () => {
     const del = document.createElement("button");
     del.textContent = "🗑️";
     del.title = "Excluir a gravação";
-    del.onclick = () => { LOG("[audio] remove preview"); resetAudioPreview(); };
+    del.onclick = resetAudioPreview;
 
     wrap.append(audio, dur, del);
     preview.appendChild(wrap);
   }
-
-  /* ---- Préviews : image (compressée ≤ 400 KB) ---- */
-  imageBtn.addEventListener("click", () => imageInput.click());
-
-  imageInput.addEventListener("change", async () => {
-    const f = imageInput.files && imageInput.files[0];
-    console.log("[image] change fired. file =", f);
-    if (!f) return;
-
-    try {
-      const { blob: comp, mime, width, height, quality } = await compressImage(f, {
-        maxWidth: 1600,
-        maxHeight: 1600,
-        maxBytes: 400 * 1024,   // <= 400 KB
-        preferType: 'image/webp',
-        initialQuality: 0.92,
-      });
-
-      if (!comp) {
-        alert("Não foi possível comprimir a imagem.");
-        imageInput.value = "";
-        return;
-      }
-
-      console.log(
-        `[image] compressed ${f.size} → ${comp.size} bytes, ` +
-        `${width}x${height}, q≈${quality.toFixed(2)}, type=${mime}`
-      );
-
-      // stocker blob compressé sur l’input
-      imageInput._blob = comp;
-
-      // aperçu = image compressée
-      if (imageInput._url) URL.revokeObjectURL(imageInput._url);
-      imageInput._url = URL.createObjectURL(comp);
-
-      const old = preview.querySelector(".img-preview");
-      if (old) old.remove();
-      const wrap = document.createElement("div");
-      wrap.className = "img-preview";
-      wrap.style.display = "flex";
-      wrap.style.alignItems = "center";
-      wrap.style.gap = ".5rem";
-
-      const img = document.createElement("img");
-      img.src = imageInput._url;
-      img.style.maxWidth = "160px";
-      img.style.maxHeight = "120px";
-      img.style.objectFit = "contain";
-      img.style.border = "1px solid var(--border)";
-      img.style.borderRadius = "4px";
-
-      const del = document.createElement("button");
-      del.textContent = "🗑️";
-      del.title = "Excluir a imagem";
-      del.onclick = () => {
-        if (imageInput._url) URL.revokeObjectURL(imageInput._url);
-        imageInput._url = null;
-        imageInput._blob = null;
-        const box = preview.querySelector(".img-preview");
-        if (box) box.remove();
-        imageInput.value = "";
-        console.log("[image] preview removed");
-      };
-
-      wrap.append(img, del);
-      preview.appendChild(wrap);
-    } catch (e) {
-      console.error("[image] compression error:", e);
-      alert("Erro ao processar a imagem.");
-      imageInput.value = "";
-    }
-  });
-
-  /* ---- Audio : enregistrement ---- */
-  recInfo.style.display = "none";
 
   function stopRecording(reason = "manual") {
     return new Promise((resolve) => {
@@ -473,18 +382,16 @@ toggleBtn.addEventListener('click', () => {
         if (timerId) { clearInterval(timerId); timerId = null; }
         recInfo.style.display = "none";
         audioBtn.textContent = "🗣️ Gravar";
-        console.log("[audio] stopped. duration(s)=", recordingDuration, "size≈", currentSize);
         resolve();
       };
       recorder.addEventListener("stop", onStop, { once: true });
 
       try {
-        console.log("[audio] stopping… reason:", reason);
         recorder.stop();
         if (reason === "size_limit") {
           setTimeout(() => alert("Gravação parou automaticamente antes de atingir o limite de 4 MB."), 400);
         }
-      } catch (e) { console.warn("[audio] stop error", e); }
+      } catch {}
       if (recorder.stream) {
         try { recorder.stream.getTracks().forEach((t) => t.stop()); } catch {}
       }
@@ -494,12 +401,8 @@ toggleBtn.addEventListener('click', () => {
   audioBtn.addEventListener("click", async () => {
     if (!recorder || recorder.state === "inactive") {
       try {
-        // reset audio preview
-        if (tempURL) { URL.revokeObjectURL(tempURL); tempURL = null; }
-        tempBlob = null;
+        resetAudioPreview();
         chunks = []; currentSize = 0; recordingDuration = 0;
-        const old = preview.querySelector(".audio-preview");
-        if (old) old.remove();
 
         recInfo.style.display = "flex";
         timerSpan.textContent = "00:00";
@@ -540,8 +443,7 @@ toggleBtn.addEventListener('click', () => {
           tempBlob = new Blob(chunks, { type: "audio/webm" });
           if (tempBlob.size > MAX_AUDIO_BYTES) {
             alert("O áudio é muito grande (máx. 4 MB).");
-            if (tempURL) { URL.revokeObjectURL(tempURL); tempURL = null; }
-            tempBlob = null;
+            resetAudioPreview();
             return;
           }
           tempURL = URL.createObjectURL(tempBlob);
@@ -550,9 +452,7 @@ toggleBtn.addEventListener('click', () => {
 
         recorder.start(RECORDING_TIMESLICE);
         audioBtn.textContent = "⏹️ Parar";
-        console.log("[audio] recording started");
       } catch (err) {
-        console.error("[audio] microphone error:", err);
         alert("Não foi possível acessar o microfone");
         recInfo.style.display = "none";
       }
@@ -561,7 +461,63 @@ toggleBtn.addEventListener('click', () => {
     }
   });
 
-  /* ---- Charger les messages ---- */
+  /* ---- Imagem: compressão + preview ---- */
+  imageBtn.addEventListener("click", () => imageInput.click());
+
+  imageInput.addEventListener("change", async () => {
+    const f = imageInput.files && imageInput.files[0];
+    if (!f) return;
+
+    try {
+      const { blob: comp, mime } = await compressImage(f, {
+        maxWidth: 1600, maxHeight: 1600, maxBytes: 400 * 1024,
+        preferType: 'image/webp', initialQuality: 0.92,
+      });
+      if (!comp) { alert("Não foi possível comprimir a imagem."); imageInput.value = ""; return; }
+
+      imageInput._blob = comp;
+      if (imageInput._url) URL.revokeObjectURL(imageInput._url);
+      imageInput._url = URL.createObjectURL(comp);
+
+      const old = preview.querySelector(".img-preview");
+      if (old) old.remove();
+
+      const wrap = document.createElement("div");
+      wrap.className = "img-preview";
+      wrap.style.display = "flex";
+      wrap.style.alignItems = "center";
+      wrap.style.gap = ".5rem";
+
+      const pimg = document.createElement("img");
+      pimg.src = imageInput._url;
+      pimg.style.maxWidth = "160px";
+      pimg.style.maxHeight = "120px";
+      pimg.style.objectFit = "contain";
+      pimg.style.border = "1px solid var(--border)";
+      pimg.style.borderRadius = "4px";
+
+      const del = document.createElement("button");
+      del.textContent = "🗑️";
+      del.title = "Excluir a imagem";
+      del.onclick = () => {
+        if (imageInput._url) URL.revokeObjectURL(imageInput._url);
+        imageInput._url = null;
+        imageInput._blob = null;
+        const box = preview.querySelector(".img-preview");
+        if (box) box.remove();
+        imageInput.value = "";
+      };
+
+      wrap.append(pimg, del);
+      preview.appendChild(wrap);
+    } catch (e) {
+      alert("Erro ao processar a imagem.");
+      imageInput.value = "";
+    }
+  });
+
+  /* ---- carregar mensagens ---- */
+  let currentPage = 0;
   loadMessages(artefactId, upper).then((hasMore) => {
     if (hasMore) loadMoreBtn.style.display = "block";
   });
@@ -571,14 +527,14 @@ toggleBtn.addEventListener('click', () => {
     if (!hasMore) loadMoreBtn.style.display = "none";
   });
 
-  /* ---- Publier ---- */
+  /* ---- publicar ---- */
   publishBtn.addEventListener("click", async () => {
     publishBtn.disabled = true;
     await stopRecording();
 
     const comment = textarea.value.trim();
 
-    // AUDIO → base64 pur
+    // áudio → base64 puro
     let audioBase64 = null;
     if (tempBlob) {
       if (tempBlob.size === 0 || tempBlob.size > MAX_AUDIO_BYTES) {
@@ -587,17 +543,14 @@ toggleBtn.addEventListener('click', () => {
         return;
       }
       audioBase64 = await blobToBase64(tempBlob);
-      console.log("[publish] audioBase64.len =", audioBase64.length);
     }
 
-    // IMAGE → lit depuis l’input (blob compressé)
+    // imagem → dataURL (mime + base64)
     let imageBase64 = null;
     const picked = imageInput._blob;
     if (picked) {
       const b64 = await blobToBase64(picked);
       imageBase64 = `data:${picked.type};base64,${b64}`;
-      console.log("[publish] imageBase64.len =", imageBase64.length);
-      console.log("[publish] imageBase64 prefix =", imageBase64.slice(0, 30));
     }
 
     if (!comment && !audioBase64 && !imageBase64) {
@@ -613,44 +566,32 @@ toggleBtn.addEventListener('click', () => {
       audioBase64,
       imageBase64,
     };
-    const bodyStr = JSON.stringify(payload);
-    console.log("[publish] payload bytes =", bodyStr.length);
-    console.log("[publish] sending:", audioBase64 ? "(audio)" : "no-audio", imageBase64 ? "+image" : "no-image");
 
     try {
       const res = await fetch("/.netlify/functions/add-message", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: bodyStr,
+        body: JSON.stringify(payload),
       });
-      console.log("[publish] response status", res.status);
       const txt = await res.text();
-      console.log("[publish] raw response", txt);
       if (!res.ok) throw new Error(`HTTP ${res.status} – ${txt}`);
 
       let json;
       try { json = JSON.parse(txt); }
-      catch { throw new Error("invalid JSON response: " + txt.slice(0, 120)); }
+      catch { throw new Error("Resposta inválida do servidor"); }
 
       const { success, id, delete_token } = json;
-      if (!success) throw new Error("Réponse invalide");
+      if (!success) throw new Error("Falha ao publicar");
 
-      // token suppression
+      // memoriza token de exclusão
       const userMessages = JSON.parse(localStorage.getItem("userMessages") || "{}");
       userMessages[id] = delete_token;
       localStorage.setItem("userMessages", JSON.stringify(userMessages));
 
-      // Reset UI
+      // reset UI
       textarea.value = "";
       nameInput.value = "";
-
-      // reset audio preview
-      if (tempURL) URL.revokeObjectURL(tempURL);
-      tempURL = null; tempBlob = null;
-      const aPrev = preview.querySelector(".audio-preview");
-      if (aPrev) aPrev.remove();
-
-      // reset image preview + input
+      resetAudioPreview();
       if (imageInput._url) URL.revokeObjectURL(imageInput._url);
       imageInput._url = null;
       imageInput._blob = null;
@@ -658,14 +599,13 @@ toggleBtn.addEventListener('click', () => {
       if (iPrev) iPrev.remove();
       imageInput.value = "";
 
-      // Invalider le cache & recharger
+      // recarregar lista
       Object.keys(messageCache).forEach((k) => k.startsWith(artefactId) && delete messageCache[k]);
       currentPage = 0;
       loadMessages(artefactId, upper).then((hasMore) => {
         loadMoreBtn.style.display = hasMore ? "block" : "none";
       });
     } catch (error) {
-      console.error("[publish] error:", error);
       alert("Erro ao publicar: " + error.message);
     } finally {
       publishBtn.disabled = false;
@@ -674,7 +614,7 @@ toggleBtn.addEventListener('click', () => {
 }
 
 /* =========================================================
-   GALERIE + INFINITE SCROLL
+   GALERIA + INFINITE SCROLL
    ========================================================= */
 
 function loadArtefacts(count = 3) {
@@ -699,17 +639,16 @@ function checkScrollPosition() {
   const bodyHeight = document.body.offsetHeight;
   if (scrollPosition > bodyHeight - 500) loadArtefacts();
 }
-
 window.addEventListener("scroll", checkScrollPosition);
 
 /* =========================================================
-   MODALE CARTE (Leaflet)
+   MODAL MAPA (Leaflet)
    ========================================================= */
 
-let map;                       // instance Leaflet
-let drawnMarkers = [];         // marqueurs existants enregistrés
-let currentMarker = null;      // marqueur en cours de placement
-let currentArtefactId = null;  // artefact courant
+let map;                       // instância Leaflet
+let drawnMarkers = [];         // marcadores já salvos
+let currentMarker = null;      // marcador a posicionar
+let currentArtefactId = null;  // id atual
 
 async function openMap(artefactId) {
   currentArtefactId = artefactId;
@@ -717,9 +656,7 @@ async function openMap(artefactId) {
   modal.style.display = "flex";
 
   $("#closeMap").onclick = closeMap;
-  console.log("[map] open for", artefactId);
 
-  // Init carte 1 seule fois
   if (!map) {
     const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: "© OpenStreetMap",
@@ -734,7 +671,7 @@ async function openMap(artefactId) {
       zoom: 5,
       layers: [esriSat],
     });
-    L.control.layers({ Carte: osm, Satellite: esriSat }).addTo(map);
+    L.control.layers({ "Mapa": osm, "Satélite": esriSat }).addTo(map);
     map.on("click", (e) => {
       if (currentMarker) map.removeLayer(currentMarker);
       currentMarker = L.marker(e.latlng, { draggable: true }).addTo(map);
@@ -743,18 +680,14 @@ async function openMap(artefactId) {
     setTimeout(() => map.invalidateSize(), 100);
   }
 
-  // Purge des anciennes couches (hors tuiles)
   map.eachLayer((l) => { if (!(l instanceof L.TileLayer)) map.removeLayer(l); });
   drawnMarkers = [];
   currentMarker = null;
 
-  // Charger points existants
   try {
     const url = `/.netlify/functions/get-locations?artefact=${artefactId}`;
-    console.log("[map] GET", url);
     const res = await fetch(url, { cache: "no-store" });
     const points = res.ok ? await res.json() : [];
-    console.log("[map] points =", points.length);
     points.forEach((p) => {
       const m = L.marker([p.lat, p.lng]).addTo(map)
         .bindPopup(`${p.author || "Anônimo"}<br>${new Date(p.created_at).toLocaleDateString()}`);
@@ -774,18 +707,16 @@ async function openMap(artefactId) {
 function closeMap() {
   $("#map-modal").style.display = "none";
   if (currentMarker) { map.removeLayer(currentMarker); currentMarker = null; }
-  console.log("[map] close");
 }
 
 $("#saveLoc").addEventListener("click", async () => {
   if (!currentMarker) {
-    alert("Clique na carta para escolher o ponto.");
+    alert("Clique no mapa para escolher o ponto.");
     return;
   }
   const { lat, lng } = currentMarker.getLatLng();
   const author = prompt("Seu nome (opcional)", "") || "Anônimo";
   const payload = { artefact_id: currentArtefactId, lat, lng, author };
-  console.log("[map] save", payload);
 
   const res = await fetch("/.netlify/functions/set-location", {
     method: "POST",
@@ -799,12 +730,11 @@ $("#saveLoc").addEventListener("click", async () => {
     closeMap();
   } else {
     const t = await res.text();
-    console.warn("[map] save error:", t);
     alert("Erro: " + t);
   }
 });
 
-/* Délégation de clic pour les boutons localisation créés dynamiquement */
+/* Delegação de clique para botões Localizar criados dinamicamente */
 document.addEventListener("click", (e) => {
   const btn = e.target.closest(".loc-btn");
   if (btn) openMap(btn.dataset.artefact);
@@ -814,9 +744,5 @@ document.addEventListener("click", (e) => {
    BOOT
    ========================================================= */
 document.addEventListener("DOMContentLoaded", () => {
-  console.log("[boot] DOM ready");
-  loadArtefacts(); // charge les 3 premiers; l’infinite scroll fera le reste
+  loadArtefacts(); // carrega os 3 primeiros; o infinite scroll faz o resto
 });
-
-
-
