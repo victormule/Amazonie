@@ -255,8 +255,19 @@ media.appendChild(img);
 row.appendChild(media);
 
 
-  const panel = document.createElement("div");
-  panel.className = "panel";
+const panel = document.createElement("div");
+panel.className = "panel";
+
+/* ⬇️ Barre d'outils + bouton de repli */
+const toolbar = document.createElement('div');
+toolbar.className = 'panel-toolbar';
+toolbar.innerHTML = `
+  <button class="toggle-mode" aria-expanded="true" title="Afficher uniquement les commentaires">
+    🗂️ Commentaires seulement
+  </button>
+`;
+panel.appendChild(toolbar);
+
 
   const upper = document.createElement("div");
   upper.className = "panel-upper";
@@ -286,6 +297,26 @@ lower.innerHTML = `
   panel.appendChild(lower);
   row.appendChild(panel);
   gallery.appendChild(row);
+const toggleBtn = toolbar.querySelector('.toggle-mode');
+
+/* État mémorisé par artefact */
+let collapsed = JSON.parse(localStorage.getItem('collapsed:'+artefactId) || 'false');
+if (collapsed) {
+  panel.classList.add('collapsed');
+  toggleBtn.textContent = '✎ Écrire';
+  toggleBtn.setAttribute('aria-expanded','false');
+}
+
+/* Toggle */
+toggleBtn.addEventListener('click', () => {
+  collapsed = !collapsed;
+  panel.classList.toggle('collapsed', collapsed);
+  toggleBtn.textContent = collapsed ? '✎ Écrire' : '🗂️ Commentaires seulement';
+  toggleBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+  localStorage.setItem('collapsed:'+artefactId, JSON.stringify(collapsed));
+  // petit confort : revenir en haut des commentaires en mode "commentaires seulement"
+  if (collapsed) upper.scrollTop = 0;
+});
 
   // Bouton charger plus
   const loadMoreBtn = document.createElement("button");
@@ -786,5 +817,6 @@ document.addEventListener("DOMContentLoaded", () => {
   console.log("[boot] DOM ready");
   loadArtefacts(); // charge les 3 premiers; l’infinite scroll fera le reste
 });
+
 
 
