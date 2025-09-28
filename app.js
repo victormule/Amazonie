@@ -628,17 +628,38 @@ function loadArtefacts(count = 3) {
     nextImages.forEach(renderArtefact);
     isLoading = false;
     loadingIndicator.style.display = "none";
-    checkScrollPosition();
+    
   }, 200);
 }
 
-function checkScrollPosition() {
-  if (isLoading || currentIndex >= IMAGES.length) return;
-  const scrollPosition = window.innerHeight + window.scrollY;
-  const bodyHeight = document.body.offsetHeight;
-  if (scrollPosition > bodyHeight - 500) loadArtefacts();
+// ---- IntersectionObserver-based infinite scroll ----
+let io; // observer instance
+
+function initInfiniteScroll() {
+  // Create a tiny sentinel *after* the gallery so it’s always below the content
+  let sentinel = document.getElementById('infinite-sentinel');
+  if (!sentinel) {
+    sentinel = document.createElement('div');
+    sentinel.id = 'infinite-sentinel';
+    sentinel.style.cssText = 'height:1px;width:100%;';
+    // place right after the gallery container
+    gallery.insertAdjacentElement('afterend', sentinel);
+  }
+
+  // Disconnect a previous observer if any
+  if (io) io.disconnect();
+
+  io = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (entry.isIntersecting && !isLoading && currentIndex < IMAGES.length) {
+        loadArtefacts();
+      }
+    }
+  }, { root: null, rootMargin: '800px 0px', threshold: 0 });
+
+  io.observe(sentinel);
 }
-window.addEventListener("scroll", checkScrollPosition);
+
 
 /* =========================================================
    MODAL MAPA (Leaflet) — Mapa por padrão + DELETE (ao vivo)
@@ -888,7 +909,8 @@ document.addEventListener("click", (e) => {
    BOOT
    ========================================================= */
 document.addEventListener("DOMContentLoaded", () => {
-  loadArtefacts(); // carrega os 3 primeiros; o infinite scroll faz o resto
+  loadArtefacts();          // loads the first batch
+  initInfiniteScroll();     // sets up the observer to load the rest
 });
 
 
