@@ -583,7 +583,65 @@ button[disabled] { opacity: .6; cursor: not-allowed; }
   filter: brightness(1.08);
 }
 
+/* --------- Carte unifiée image + commentaires ---------- */
+.artefact-card{
+  max-width: 1200px;           /* largeur max pour le duo */
+  margin: 0 auto 2rem;         /* centré + espacement entre cartes */
+  background:#161616;
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:16px;
+  box-shadow: 0 6px 22px rgba(0,0,0,.25);
+}
 
+/* Grille 2 colonnes sur large, 1 colonne sur mobile */
+.artefact__grid{
+  display:grid;
+  grid-template-columns: 1.1fr 1fr; /* image un peu plus large */
+  gap:16px;
+  align-items:start;
+}
 
+@media (max-width: 980px){
+  .artefact__grid{ grid-template-columns: 1fr; } /* empile */
+}
+
+/* Média de l’artefact */
+.artefact__media{
+  width:100%;
+}
+.artefact__media img{
+  display:block;
+  width:100%;
+  height:auto;
+  border-radius:10px;
+  border:1px solid #222;
+  background:#000;
+}
+
+/* Panneau de commentaires */
+.panel{ 
+  width:100%;
+  background:rgba(255,255,255,.03);
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:12px;
+}
+
+/* Le bloc qui liste les commentaires (scrollable mais compact) */
+.panel-upper{
+  max-height: 340px;           /* garde un profil bas */
+  overflow:auto;
+  margin-bottom:.75rem;
+  padding-right:.25rem;
+}
+
+/* Rangée des actions (les boutons) — compacte */
+.actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:.5rem;
+  margin:.5rem 0 0;
+}
 
 
