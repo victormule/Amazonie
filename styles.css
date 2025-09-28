@@ -515,5 +515,69 @@ button[disabled] { opacity: .6; cursor: not-allowed; }
     max-height: 66vh;
   }
 }
+/* ===== Compact mode: réduire la hauteur occupée par le bas du panneau ===== */
 
+/* un peu moins haut pour l’ensemble (optionnel) */
+.artefact{
+  height: clamp(380px, 56vh, 680px);
+}
+
+/* paddings + espacements plus serrés */
+.panel-upper{ padding: .75rem .75rem; }
+.panel-lower{
+  padding: .6rem .75rem;
+  gap: .5rem;                 /* ↓ espace vertical entre les éléments */
+}
+
+/* champs plus compacts */
+.panel-lower input,
+.panel-lower textarea{
+  padding: .4rem .55rem;
+  font-size: .95rem;
+  line-height: 1.25;
+}
+.panel-lower textarea{
+  min-height: 52px;
+  max-height: 160px;          /* évite d’étirer le panneau */
+}
+
+/* compteur et infos d’enregistrement plus discrets */
+.char-count{
+  margin-top: -4px;
+  margin-bottom: 0;
+  font-size: .72rem;
+  color: #9aa;
+}
+.rec-info{
+  padding: 0;
+  margin: .1rem 0 0;
+  font-size: .78rem;
+  gap: .5rem;
+}
+
+/* groupe de boutons plus serré */
+.actions{
+  gap: .5rem;
+}
+.actions button{
+  padding: .45rem .7rem;
+  font-size: .92rem;
+  border-radius: 6px;
+}
+
+/* notes/messages un peu plus compacts aussi */
+.note{
+  padding: .45rem .6rem;
+  margin: 0 0 .5rem;
+  font-size: .9rem;
+}
+.note .comment-media img{
+  max-height: 220px;          /* évite de pousser le reste trop bas */
+}
+
+/* bouton "play audio" plus petit */
+.play-audio{
+  padding: .25rem .45rem;
+  font-size: .82rem;
+}
 
