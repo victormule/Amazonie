@@ -112,6 +112,9 @@ async function compressImage(file, {
 
   return { blob, mime: outType, width: w, height: h, quality: q };
 }
+// Normalise toutes les clés d'ID pour les Maps/objets
+const keyId = (v) => String(v);
+
 
 /* ======= STATE ======= */
 const gallery = $("#gallery");
@@ -719,7 +722,9 @@ async function openMap(artefactId) {
     points.forEach((p) => {
       const owned = !!getUserToken(p.id);
       const m = L.marker([p.lat, p.lng]).addTo(map);
-      markersById.set(p.id, m);
+      markersById.set(keyId(p.id), m);
+console.log('[map] add marker key=', keyId(p.id));
+
 
       const dateStr = new Date(p.created_at).toLocaleDateString();
       const controls = owned
@@ -782,7 +787,9 @@ document.getElementById('saveLoc').addEventListener('click', async () => {
 
       // adiciona imediatamente o novo marcador “do usuário”
       const m = L.marker([lat, lng]).addTo(map);
-      markersById.set(json.id, m);
+      markersById.set(keyId(json.id), m);
+console.log('[map] add marker (new) key=', keyId(json.id));
+
       const dateStr = new Date().toLocaleDateString();
       m.bindPopup(`${author || "Anônimo"}<br>${dateStr}<div style="margin-top:.4rem"><button class="loc-del" data-id="${json.id}">🗑️ Excluir</button></div>`);
       map.removeLayer(currentMarker);
@@ -806,31 +813,52 @@ if (!window.__locDelBound) {
     const btn = e.target.closest('.loc-del');
     if (!btn) return;
 
-    const id = btn.dataset.id;
-    const token = getUserToken(id);
-    if (!token) { alert("Token ausente para este marcador."); return; }
-    if (!confirm('Tem certeza que deseja excluir este marcador?')) return;
+const id = btn.dataset.id;              // string depuis data-id
+const k  = keyId(id);                   // normalisé (string)
 
-    try {
-      const r = await fetch('/.netlify/functions/delete-location', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, delete_token: token })
-      });
-      const txt = await r.text();
-      if (!r.ok) throw new Error(txt);
+console.log('[map] delete click id=', id, 'hasKey=', markersById.has(k),
+            'keys=', Array.from(markersById.keys()));
 
-      // remoção imediata no mapa e no estado local
-      const m = markersById.get(id);
-      if (m) {
-        try { m.closePopup(); } catch {}
-        m.remove();                 // remove do mapa
-        markersById.delete(id);
+const token = getUserToken(id);
+if (!token) { alert("Token ausente para este marcador."); return; }
+if (!confirm('Tem certeza que deseja excluir este marcador?')) return;
+
+try {
+  const r = await fetch('/.netlify/functions/delete-location', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, delete_token: token })
+  });
+  const txt = await r.text();
+  if (!r.ok) throw new Error(txt);
+
+  // ✅ suppression live
+  const m = markersById.get(k);
+  if (m) {
+    try { m.closePopup(); } catch {}
+    m.remove();
+    markersById.delete(k);
+    console.log('[map] removed marker key=', k);
+  } else {
+    console.warn('[map] marker not found in cache for key=', k);
+    // (optionnel) petit fallback : retire un marker dont le popup contient data-id
+    let removed = false;
+    map.eachLayer(l => {
+      if (l instanceof L.Marker && l.getPopup()) {
+        const html = l.getPopup().getContent();
+        if (typeof html === 'string' && html.includes(`data-id="${k}"`)) {
+          l.remove(); removed = true;
+        }
       }
-      removeUserLocationToken(id);
-    } catch (err) {
-      alert("Erro ao excluir: " + err.message);
-    }
+    });
+    if (removed) console.log('[map] removed via fallback for key=', k);
+  }
+
+  removeUserLocationToken(id);
+} catch (err) {
+  alert("Erro ao excluir: " + err.message);
+}
+
   });
 }
 
@@ -846,3 +874,4 @@ document.addEventListener("click", (e) => {
 document.addEventListener("DOMContentLoaded", () => {
   loadArtefacts(); // carrega os 3 primeiros; o infinite scroll faz o resto
 });
+
