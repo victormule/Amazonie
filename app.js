@@ -243,11 +243,17 @@ function renderArtefact({ src, alt }) {
   const row = document.createElement("div");
   row.className = "artefact";
 
-  const img = document.createElement("img");
-  img.alt = alt;
-  img.src = src;
-  img.loading = "lazy";
-  row.appendChild(img);
+const media = document.createElement('div');
+media.className = 'artefact__media';
+
+const img = document.createElement('img');
+img.alt = alt;
+img.src = src;
+img.loading = 'lazy';
+
+media.appendChild(img);
+row.appendChild(media);
+
 
   const panel = document.createElement("div");
   panel.className = "panel";
@@ -263,12 +269,13 @@ function renderArtefact({ src, alt }) {
     <textarea placeholder="Adicionar um comentário…" maxlength="1000"></textarea>
     <div class="char-count">0 / 1000</div>
 
-    <button data-publish>Publicar</button>
-    <button style="margin-left:.5rem" data-audio>🗣️ Gravar</button>
-    <button style="margin-left:.5rem" data-image>🖼️ Importar imagem</button>
-    <input type="file" accept="image/png,image/jpeg,image/webp" data-image-input style="display:none" />
+<div class="actions">
+  <button data-publish>Publier</button>
+  <button style="margin-left:.5rem" data-audio>🗣️ Enregistrer</button>
+  <button style="margin-left:.5rem" data-image>🖼️ Importer une image</button>
+  <button style="margin-left:.5rem" class="loc-btn" data-artefact="${artefactId}">📍 Trouver</button>
+</div>
 
-    <button style="margin-left:.5rem" class="loc-btn" data-artefact="${artefactId}">📍 Localizar</button>
 
     <div class="rec-info"><span class="rec-time"></span><span class="file-size"></span></div>
     <div class="preview" data-preview></div>
@@ -776,3 +783,4 @@ document.addEventListener("DOMContentLoaded", () => {
   console.log("[boot] DOM ready");
   loadArtefacts(); // charge les 3 premiers; l’infinite scroll fera le reste
 });
+
