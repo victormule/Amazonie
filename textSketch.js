@@ -11,14 +11,14 @@ const PER_CHAR_MIN = 6;
 const PER_CHAR_MAX = 14;
 const FPS = 60;
 
-/* Bandes VERTICALES (sur le texte) */
-const VSTRIPE_COUNT_MIN   = 2;
-const VSTRIPE_COUNT_MAX   = 5;
+/* Bandes VERTICALES (sur le texte) — discrètes, desktop only */
+const VSTRIPE_COUNT_MIN   = 1;
+const VSTRIPE_COUNT_MAX   = 3;
 const VSTRIPE_WIDTH_MIN   = 2;   // px
-const VSTRIPE_WIDTH_MAX   = 8;   // px
+const VSTRIPE_WIDTH_MAX   = 6;   // px
 const VSTRIPE_OFFSET_MAX  = 10;  // px
 
-/* Couleur de référence (orange “memoria & Alma”) */
+/* Couleur de référence (orange “Memoria & Alma”) */
 const BASE_ORANGE = '#e39220';
 
 /* Hover */
@@ -28,26 +28,48 @@ const HOVER_ITALIC = false;      // si tu ajoutes dubellit.ttf, tu peux passer �
 
 /* Padding (hauteur du canvas) */
 const PAD_X = 16; // px
-const PAD_Y = 26;  // px
-
-
+const PAD_Y = 26; // px
 
 /* Optimisations Mobile */
 const IS_MOBILE = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 const LITE_FRAME_MOD = IS_MOBILE ? 2 : 1; // sur mobile: glitch “lourd” 1 frame/2
 
-/* ===================== STATE ===================== */
+/* Scanlines (overlay subtil) */
+const SCANLINE_ALPHA = 10;  // 0 = désactiver
+const SCANLINE_STEP  = 3;   // espacement en px
 
+/* Ghosting de base */
+const BASE_OFFSET = 1.2;    // décalage copies (px)
+
+/* Glitch avancé (bandes ondulées + gros tears) */
+const WAVE_SLICE_COUNT = 4;   // nb de bandes ondulées
+const WAVE_MIN_H       = 6;   // hauteur min bande
+const WAVE_MAX_H       = 22;  // hauteur max bande
+const WAVE_FREQ        = 0.035;// fréquence sinusoïde
+const WAVE_SPEED       = 2.8;  // vitesse onde
+const WAVE_AMP         = 6;    // amplitude max (px)
+
+const BIG_TEAR_CHANCE  = 0.025;// proba/frame
+const BIG_TEAR_MS      = 140;  // durée d’un tear
+const BIG_TEAR_MAX_DX  = 18;   // décalage max
+const BIG_TEAR_BANDS   = 3;    // nb de bandes tear
+
+/* Ghosting opacités */
+const GHOST_ALPHA_MAIN  = 180; // couche principale
+const GHOST_ALPHA_GHOST = 110; // copies ghost (utilisé via makeWarmTones)
+
+/* ===================== STATE ===================== */
 let noms = null, scrambler, nextChangeAt = 0;
 let pg, baseTextSize;
 let hoverNow = false, hoverPrev = false;
+let scanlines;       // overlay
+let bigTearUntil = 0;
 
 /* Fonts */
 let fontRegular = null;
 // let fontItalic  = null;
 
 /* ===================== p5 LIFECYCLE ===================== */
-
 function preload() {
   // charge la police; en cas d’échec, on garde fontRegular = null (fallback)
   fontRegular = loadFont(
@@ -76,7 +98,6 @@ function setup() {
   frameRate(IS_MOBILE ? 50 : FPS);
   pixelDensity(1);
 
-  // ⚠️ on n’appelle textFont QUE si la fonte est chargée
   if (fontRegular) textFont(fontRegular);
   textAlign(CENTER, CENTER);
 
@@ -89,6 +110,10 @@ function setup() {
   pg.pixelDensity(1);
   if (fontRegular) pg.textFont(fontRegular);
   pg.textAlign(CENTER, CENTER);
+
+  // overlay scanlines
+  scanlines = createGraphics(width, height);
+  buildScanlines();
 
   layoutToHolder(); // ajuste la taille/hauteur au texte
 }
@@ -131,14 +156,12 @@ function draw() {
 }
 
 /* ===================== LAYOUT ===================== */
-
 function layoutToHolder() {
   const holder = document.getElementById("p5-hero");
   if (!holder) return;
 
   const w = holder.clientWidth || window.innerWidth;
 
-  // utiliser la même fonte pour les mesures, si dispo
   if (fontRegular) textFont(fontRegular);
 
   const candidates = (noms || []).concat([HOVER_WORD]);
@@ -157,10 +180,23 @@ function layoutToHolder() {
   if (fontRegular) pg.textFont(fontRegular);
   pg.textAlign(CENTER, CENTER);
   pg.textSize(baseTextSize);
+
+  // rebuild scanlines à la nouvelle taille
+  scanlines = createGraphics(w, h);
+  buildScanlines();
+}
+
+function buildScanlines() {
+  scanlines.clear();
+  if (SCANLINE_ALPHA > 0) {
+    scanlines.stroke(255, SCANLINE_ALPHA);
+    for (let y = 0; y < scanlines.height; y += SCANLINE_STEP) {
+      scanlines.line(0, y + 0.5, scanlines.width, y + 0.5);
+    }
+  }
 }
 
 /* ===================== SCRAMBLER ===================== */
-
 class TextScrambler {
   constructor(initialText = "") {
     this.current = initialText;
@@ -177,7 +213,7 @@ class TextScrambler {
       const fromChar = from[i] || "";
       const toChar   = to[i] || "";
       const start = Math.floor(random(0, PER_CHAR_MIN));
-      const perCharMax = IS_MOBILE ? Math.max(6, PER_CHAR_MAX - 2) : PER_CHAR_MAX; // un peu plus court sur mobile
+      const perCharMax = IS_MOBILE ? Math.max(6, PER_CHAR_MAX - 2) : PER_CHAR_MAX;
       const end   = start + Math.floor(random(PER_CHAR_MIN, perCharMax));
       this.queue.push({ fromChar, toChar, start, end, char: "" });
     }
@@ -201,28 +237,21 @@ class TextScrambler {
     if (complete === this.queue.length) this.done = true;
   }
 }
-
-function randomChar() {
-  return LETTERS.charAt(Math.floor(random(LETTERS.length)));
-}
+function randomChar() { return LETTERS.charAt(Math.floor(random(LETTERS.length))); }
 
 /* ===================== RENDU & HITBOX ===================== */
-
 function renderTextToBuffer(buffer, textStr, sizePx, hoverMode) {
   buffer.clear();
   buffer.push();
-  // police : si pas chargée, on laisse le canvas utiliser la police par défaut
   if (fontRegular) buffer.textFont((hoverMode && HOVER_ITALIC /* && fontItalic */) ? /* fontItalic || */ fontRegular : fontRegular);
   buffer.textSize(sizePx);
   buffer.noStroke();
-  buffer.fill(255); // texte blanc (les halos/couleurs sont gérés dans glitch)
-  // micro jitter
+  buffer.fill(255); // texte blanc (couleurs / halos gérés dans glitch)
   const jx = random(-0.25, 0.25), jy = random(-0.25, 0.25);
   buffer.translate(jx, jy);
   buffer.text(textStr, buffer.width / 2, buffer.height / 2);
   buffer.pop();
 }
-
 function isMouseOverText(textStr, sizePx) {
   if (fontRegular) textFont(fontRegular);
   push();
@@ -237,22 +266,17 @@ function isMouseOverText(textStr, sizePx) {
 }
 
 /* ===================== GLITCH ===================== */
-
-// variations orangées autour de BASE_ORANGE (HSB)
 // variations orangées autour de BASE_ORANGE (HSB)
 // -> sur mobile: AUCUNE variation (couleur fixe) pour éviter le flicker
 function makeWarmTones(intensity = 1) {
   if (IS_MOBILE) {
     const base = color(BASE_ORANGE);
-    // même couleur, alphas stables
     return [
       color(red(base), green(base), blue(base), 150),
       color(red(base), green(base), blue(base), 130),
       color(red(base), green(base), blue(base), 110),
     ];
   }
-
-  // Desktop: petites variations
   push();
   colorMode(HSB, 360, 100, 100, 255);
   const base = color(BASE_ORANGE);
@@ -265,64 +289,93 @@ function makeWarmTones(intensity = 1) {
 }
 
 function drawGlitch(src, boost = 1.0, hoverMode = false) {
-const time = millis() * 0.001;
-const wave = Math.sin(time * 2.5) * 0.5 + 0.5;
-const intensity = (IS_MOBILE ? 0.7 : lerp(0.35, 0.9, wave)) * boost;
-  const offset = 1.2 * intensity;
+  const t = millis() * 0.001;
+  const wavePhase = Math.sin(t * 2.5) * 0.5 + 0.5;
+  const baseIntensity = IS_MOBILE ? 0.7 : lerp(0.35, 0.9, wavePhase);
+  const intensity = baseIntensity * boost;
+  const offset = BASE_OFFSET * intensity;
 
-  // jitter global léger
-  const jx = random(-0.3, 0.3) * boost;
-  const jy = random(-0.3, 0.3) * boost;
+  // déclenchement ponctuel d’un gros "tear"
+  if (!IS_MOBILE && random() < BIG_TEAR_CHANCE) {
+    bigTearUntil = millis() + BIG_TEAR_MS;
+  }
+  const tearActive = millis() < bigTearUntil;
 
-  // COUCHES PRINCIPALES
+  // — Ghosting / copies — même teinte (pas de RGB split)
+  const jitterX = random(-0.3, 0.3) * boost;
+  const jitterY = random(-0.3, 0.3) * boost;
+
   push();
-  translate(jx, jy);
-
+  translate(jitterX, jitterY);
   if (hoverMode) {
-    // Blanc (hover) — 2 couches suffisent
+    // Blanc (hover), lisible et énergique
     tint(255, 230); image(src, 0, 0);
     tint(255, 160); image(src,  offset, -offset);
   } else {
-    // Orange (normal) — variations légères
     const [c1, c2, c3] = makeWarmTones(intensity);
-    if (IS_MOBILE) {
-      tint(c1); image(src,  offset, -offset);
-      tint(c2); image(src, -offset,  offset);
-    } else {
-      tint(c1); image(src,  offset, -offset);
-      tint(c2); image(src, -offset,  offset);
-      tint(c3); image(src,  0,       0);
-    }
+    tint(red(c1), green(c1), blue(c1), GHOST_ALPHA_MAIN); image(src, 0, 0);
+    tint(c2); image(src,  offset, -offset);
+    tint(c3); image(src, -offset,  offset);
   }
   pop();
   noTint();
 
-  // BANDES VERTICALES (rapides, sans get()):
-  const stripes = Math.floor(
-    random(
-      Math.max(1, VSTRIPE_COUNT_MIN - (IS_MOBILE ? 1 : 0)),
-      VSTRIPE_COUNT_MAX + 1 - (IS_MOBILE ? 1 : 0)
-    )
-  );
+  // — Bandes ondulées (WAVE)
+  if (!IS_MOBILE || frameCount % 2 === 0) {
+    for (let i = 0; i < WAVE_SLICE_COUNT; i++) {
+      const sh = floor(random(WAVE_MIN_H, WAVE_MAX_H));
+      const sy = floor(random(0, height - sh));
+      const phase = t * WAVE_SPEED + sy * WAVE_FREQ;
+      const amp = WAVE_AMP * intensity * (hoverMode ? 1.2 : 1.0);
+      const dx = Math.sin(phase) * amp;
+      copy(src, 0, sy, width, sh, dx, sy, width, sh);
+    }
+  }
 
-  for (let i = 0; i < stripes; i++) {
-    const sw = Math.floor(random(VSTRIPE_WIDTH_MIN, VSTRIPE_WIDTH_MAX + 1));
-    const sx = Math.floor(random(0, width - sw));
-    const dx = Math.floor(
-      sx + random(-VSTRIPE_OFFSET_MAX, VSTRIPE_OFFSET_MAX) * intensity * (hoverMode ? 1.4 : 1.0)
-    );
+  // — Gros tears ponctuels
+  if (tearActive && !IS_MOBILE) {
+    for (let i = 0; i < BIG_TEAR_BANDS; i++) {
+      const sh = floor(random(height * 0.08, height * 0.22));
+      const sy = floor(random(0, height - sh));
+      const dx = random(-BIG_TEAR_MAX_DX, BIG_TEAR_MAX_DX) * (hoverMode ? 1.3 : 1.0);
+      copy(src, 0, sy, width, sh, dx, sy, width, sh);
+    }
+  } else {
+    // petites tranches classiques
+    const sliceCount = floor(random(1, 3));
+    for (let i = 0; i < sliceCount; i++) {
+      const sh = floor(random(3, 10));
+      const sy = floor(random(0, height - sh));
+      const dx = random(-6, 6) * intensity;
+      copy(src, 0, sy, width, sh, dx, sy, width, sh);
+    }
+  }
 
-    // décale de fines colonnes du buffer texte directement sur le canvas
-    copy(src, sx, 0, sw, height, dx, 0, sw, height);
+  // — Bandes VERTICALES très légères (desktop only)
+  if (!IS_MOBILE) {
+    const stripes = Math.floor(random(VSTRIPE_COUNT_MIN, VSTRIPE_COUNT_MAX + 1));
+    for (let i = 0; i < stripes; i++) {
+      const sw = Math.floor(random(VSTRIPE_WIDTH_MIN, VSTRIPE_WIDTH_MAX + 1));
+      const sx = Math.floor(random(0, width - sw));
+      const dx = Math.floor(sx + random(-VSTRIPE_OFFSET_MAX, VSTRIPE_OFFSET_MAX) * intensity * (hoverMode ? 1.2 : 1.0));
+      copy(src, sx, 0, sw, height, dx, 0, sw, height);
+    }
+  }
+
+  // — Scanlines subtiles
+  if (SCANLINE_ALPHA > 0) {
+    push();
+    blendMode(OVERLAY);
+    image(scanlines, 0, 0);
+    pop();
   }
 }
 
 /* ===================== OUTILS TEXTE ===================== */
-
 function getWidestString(strings) {
   if (fontRegular) textFont(fontRegular);
   push();
-  textSize(200); // mesure stable
+  textSize(200);
   let maxW = -1, widest = strings[0] || "";
   for (const s of strings) {
     const w = textWidth(s);
@@ -331,7 +384,6 @@ function getWidestString(strings) {
   pop();
   return widest;
 }
-
 function fitTextSizeToWidth(textStr, targetWidth) {
   if (fontRegular) textFont(fontRegular);
   let lo = 6, hi = 3000, best = 32;
@@ -346,14 +398,8 @@ function fitTextSizeToWidth(textStr, targetWidth) {
 }
 
 /* ===================== FLUX ===================== */
-
 function changeToRandomName() {
   const target = random(noms);
   scrambler.setText(target);
   nextChangeAt = millis() + INTERVAL_BETWEEN_WORDS;
 }
-
-
-
-
-
