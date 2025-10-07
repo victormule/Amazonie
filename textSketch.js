@@ -16,7 +16,7 @@ const VSTRIPE_ALPHA_HOVER  = 170; // opacité bandes (hover)
 
 // ---------- Glitch (doux, sans bandes ni scanlines)
 const ORANGE_1 = () => color(255, 180, 100, 120);
-const ORANGE_2 = () => color(255, 120,  60, 100);
+const ORANGE_2 = () => color(255, 60,  60, 50);
 const ORANGE_3 = () => color(255, 220, 160, 90);
 
 // ---------- Hover
@@ -269,6 +269,7 @@ function fitTextSizeToWidth(textStr, targetWidth) {
   }
   return best;
 }
+
 
 
 
