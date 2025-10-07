@@ -28,7 +28,7 @@ const HOVER_ITALIC = false;      // si tu ajoutes dubellit.ttf, tu peux passer Ã
 
 /* Padding (hauteur du canvas) */
 const PAD_X = 16; // px
-const PAD_Y = 88;  // px
+const PAD_Y = 20;  // px
 
 
 
@@ -339,5 +339,6 @@ function changeToRandomName() {
   scrambler.setText(target);
   nextChangeAt = millis() + INTERVAL_BETWEEN_WORDS;
 }
+
 
 
