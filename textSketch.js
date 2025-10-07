@@ -15,7 +15,7 @@ const VSTRIPE_ALPHA_NORMAL = 110; // opacité bandes (mode normal)
 const VSTRIPE_ALPHA_HOVER  = 170; // opacité bandes (hover)
 
 // ---------- Glitch (doux, sans bandes ni scanlines)
-const BASE_ORANGE = '#F08B3C'; // ← remplace par ton hex si différent
+const BASE_ORANGE = '#e39220'; //
 
 // ---------- Hover
 const HOVER_WORD = "AMAZONAS";
@@ -297,6 +297,7 @@ function fitTextSizeToWidth(textStr, targetWidth) {
   }
   return best;
 }
+
 
 
 
