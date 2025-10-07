@@ -388,13 +388,14 @@ button[disabled]{ opacity:.6; cursor:not-allowed; }
   outline-offset:2px;
 }
 
-/* le canvas prend juste sa propre hauteur */
+/* Canvas textSketch.js (Titre animation) */
 #p5-hero { position: relative; }
 #p5-hero canvas {
   display: block;
-  width: 100% !important;
-  height: auto !important;   /* conserve le ratio, hauteur = intrinsèque */
+  width: 90% !important;
+  height: auto !important;   
 }
+
 
 
 
