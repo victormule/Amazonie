@@ -1,8 +1,8 @@
 /* ===================== CONFIG ===================== */
 
-/* Police Dafont (mets les fichiers dans /fonts) */
-const FONT_REGULAR_PATH = 'fonts/HighVoltage Rough.ttf';
-const FONT_ITALIC_PATH  = 'fonts/dubellit.ttf'; // optionnel (voir HOVER_ITALIC)
+/* Police Dafont (mets le fichier dans /fonts) */
+const FONT_REGULAR_PATH = 'fonts/dubellay.ttf';   // assure-toi que ce chemin existe dans le repo
+// const FONT_ITALIC_PATH  = 'fonts/dubellit.ttf'; // optionnel si tu veux un style hover italic
 
 /* Animation */
 const LETTERS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZàâäçéèêëîïôöùûüáíóúãõñ -";
@@ -16,7 +16,7 @@ const VSTRIPE_COUNT_MIN   = 2;
 const VSTRIPE_COUNT_MAX   = 5;
 const VSTRIPE_WIDTH_MIN   = 2;   // px
 const VSTRIPE_WIDTH_MAX   = 8;   // px
-const VSTRIPE_OFFSET_MAX  = 10;  // décalage latéral max (px)
+const VSTRIPE_OFFSET_MAX  = 10;  // px
 
 /* Couleur de référence (orange “memoria & Alma”) */
 const BASE_ORANGE = '#e39220';
@@ -24,7 +24,7 @@ const BASE_ORANGE = '#e39220';
 /* Hover */
 const HOVER_WORD = "AMAZONAS";
 const HOVER_GLITCH_BOOST = 1.35; // glitch un peu plus fort en hover
-const HOVER_ITALIC = false;      // passe le texte en italique au survol si (et seulement si) la fonte italic est chargée
+const HOVER_ITALIC = false;      // si tu ajoutes dubellit.ttf, tu peux passer à true
 
 /* Padding (hauteur du canvas) */
 const PAD_X = 16; // px
@@ -42,17 +42,20 @@ let hoverNow = false, hoverPrev = false;
 
 /* Fonts */
 let fontRegular = null;
-let fontItalic  = null;
+// let fontItalic  = null;
 
 /* ===================== p5 LIFECYCLE ===================== */
 
 function preload() {
-  /* charge la police pour le canvas */
-  fontRegular = loadFont(FONT_REGULAR_PATH, null, (e)=>console.warn('[textSketch] Police regular introuvable:', e));
-  // italic optionnelle (pas obligatoire)
-  fontItalic  = loadFont(FONT_ITALIC_PATH,  null, ()=>{}); 
+  // charge la police; en cas d’échec, on garde fontRegular = null (fallback)
+  fontRegular = loadFont(
+    FONT_REGULAR_PATH,
+    ()=>{},
+    (e)=>{ console.warn('[textSketch] Police regular introuvable:', e); fontRegular = null; }
+  );
+  // fontItalic  = loadFont(FONT_ITALIC_PATH, ()=>{}, ()=>{});
 
-  /* charge le JSON (serveur http conseillé, pas file://) */
+  // charge le JSON
   noms = loadJSON("noms.json");
 }
 
@@ -71,7 +74,8 @@ function setup() {
   frameRate(IS_MOBILE ? 50 : FPS);
   pixelDensity(1);
 
-  textFont(fontRegular || 'monospace');
+  // ⚠️ on n’appelle textFont QUE si la fonte est chargée
+  if (fontRegular) textFont(fontRegular);
   textAlign(CENTER, CENTER);
 
   if (!Array.isArray(noms)) noms = Object.values(noms);
@@ -81,7 +85,7 @@ function setup() {
 
   pg = createGraphics(width, height);
   pg.pixelDensity(1);
-  pg.textFont(fontRegular || 'monospace');
+  if (fontRegular) pg.textFont(fontRegular);
   pg.textAlign(CENTER, CENTER);
 
   layoutToHolder(); // ajuste la taille/hauteur au texte
@@ -132,7 +136,8 @@ function layoutToHolder() {
 
   const w = holder.clientWidth || window.innerWidth;
 
-  textFont(fontRegular || 'monospace');
+  // utiliser la même fonte pour les mesures, si dispo
+  if (fontRegular) textFont(fontRegular);
 
   const candidates = (noms || []).concat([HOVER_WORD]);
   const widest = getWidestString(candidates.length ? candidates : [HOVER_WORD]);
@@ -147,7 +152,7 @@ function layoutToHolder() {
 
   pg = createGraphics(w, h);
   pg.pixelDensity(1);
-  pg.textFont(fontRegular || 'monospace');
+  if (fontRegular) pg.textFont(fontRegular);
   pg.textAlign(CENTER, CENTER);
   pg.textSize(baseTextSize);
 }
@@ -204,7 +209,8 @@ function randomChar() {
 function renderTextToBuffer(buffer, textStr, sizePx, hoverMode) {
   buffer.clear();
   buffer.push();
-  buffer.textFont((hoverMode && HOVER_ITALIC && fontItalic) ? fontItalic : (fontRegular || 'monospace'));
+  // police : si pas chargée, on laisse le canvas utiliser la police par défaut
+  if (fontRegular) buffer.textFont((hoverMode && HOVER_ITALIC /* && fontItalic */) ? /* fontItalic || */ fontRegular : fontRegular);
   buffer.textSize(sizePx);
   buffer.noStroke();
   buffer.fill(255); // texte blanc (les halos/couleurs sont gérés dans glitch)
@@ -216,7 +222,7 @@ function renderTextToBuffer(buffer, textStr, sizePx, hoverMode) {
 }
 
 function isMouseOverText(textStr, sizePx) {
-  textFont(fontRegular || 'monospace');
+  if (fontRegular) textFont(fontRegular);
   push();
   textSize(sizePx);
   const tw = textWidth(textStr || "A");
@@ -299,7 +305,7 @@ function drawGlitch(src, boost = 1.0, hoverMode = false) {
 /* ===================== OUTILS TEXTE ===================== */
 
 function getWidestString(strings) {
-  textFont(fontRegular || 'monospace');
+  if (fontRegular) textFont(fontRegular);
   push();
   textSize(200); // mesure stable
   let maxW = -1, widest = strings[0] || "";
@@ -312,7 +318,7 @@ function getWidestString(strings) {
 }
 
 function fitTextSizeToWidth(textStr, targetWidth) {
-  textFont(fontRegular || 'monospace');
+  if (fontRegular) textFont(fontRegular);
   let lo = 6, hi = 3000, best = 32;
   while (lo <= hi) {
     const mid = (lo + hi) >> 1;
@@ -331,5 +337,3 @@ function changeToRandomName() {
   scrambler.setText(target);
   nextChangeAt = millis() + INTERVAL_BETWEEN_WORDS;
 }
-
-
