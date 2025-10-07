@@ -399,12 +399,27 @@ button[disabled]{ opacity:.6; cursor:not-allowed; }
 #p5-hero canvas {
   display: block;
   width: 100% !important;
-  height: auto !important; /* hauteur = celle du sketch */
+  height: auto !important; 
 }
 @media (max-width: 768px) {
   #p5-hero { width: 100%; }
 }
 
+@font-face {
+  font-family: 'HighVoltageRough';
+  src: url('/fonts/HighVoltage Rough.ttf') format('truetype'); 
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+
+.memoria-alma {
+  font-family: 'HighVoltageRough', system-ui, sans-serif;
+  letter-spacing: .02em;     /* optionnel */
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
 
 
 
