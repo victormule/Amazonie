@@ -402,8 +402,9 @@ button[disabled]{ opacity:.6; cursor:not-allowed; }
   height: auto !important; /* hauteur = celle du sketch */
 }
 @media (max-width: 768px) {
-  #p5-hero { width: 92%; }
+  #p5-hero { width: 100%; }
 }
+
 
 
 
