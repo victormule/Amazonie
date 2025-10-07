@@ -225,14 +225,19 @@ function drawGlitch(src, boost = 1.0, hoverMode = false) {
     tint(255, 160); image(src,  offset, -offset);
     tint(255, 140); image(src, -offset,  offset);
   } else {
-    // ORANGÉ (normal)
-    tint(255, 180, 100, 120); image(src,  offset, -offset);
-    tint(255, 120,  60, 100); image(src, -offset,  offset);
-    tint(255, 220, 160,  90); image(src,  0,       0);
-  }
-  pop();
-  noTint();
+const [col1, col2, col3] = makeWarmTones(intensity);
 
+const jitterX = random(-0.3, 0.3);
+const jitterY = random(-0.3, 0.3);
+
+push();
+translate(jitterX, jitterY);
+tint(col1); image(src,  offset, -offset);
+tint(col2); image(src, -offset,  offset);
+tint(col3); image(src,  0,       0);
+pop();
+noTint();
+    
   // --- BANDES VERTICALES sur le TEXTE ---
   // (on extrait de fines colonnes du buffer src et on les re-dessine légèrement décalées)
   const stripes = Math.floor(random(VSTRIPE_COUNT_MIN, VSTRIPE_COUNT_MAX + 1));
@@ -280,6 +285,7 @@ function fitTextSizeToWidth(textStr, targetWidth) {
   }
   return best;
 }
+
 
 
 
