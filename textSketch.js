@@ -1,33 +1,38 @@
 /* ===================== CONFIG ===================== */
 
-// ---------- Paramètres animation
+/* Police Dafont (mets les fichiers dans /fonts) */
+const FONT_REGULAR_PATH = 'fonts/dubellay.ttf';
+const FONT_ITALIC_PATH  = 'fonts/dubellit.ttf'; // optionnel (voir HOVER_ITALIC)
+
+/* Animation */
 const LETTERS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZàâäçéèêëîïôöùûüáíóúãõñ -";
-const INTERVAL_BETWEEN_WORDS = 650;
+const INTERVAL_BETWEEN_WORDS = 600;
 const PER_CHAR_MIN = 6;
-const PER_CHAR_MAX = 14;
+const PER_CHAR_MAX = 10;
 const FPS = 60;
 
-// --- Bandes VERTICALES (sur le texte seulement) ---
+/* Bandes VERTICALES (sur le texte) */
 const VSTRIPE_COUNT_MIN   = 2;
 const VSTRIPE_COUNT_MAX   = 5;
 const VSTRIPE_WIDTH_MIN   = 2;   // px
 const VSTRIPE_WIDTH_MAX   = 8;   // px
 const VSTRIPE_OFFSET_MAX  = 10;  // décalage latéral max (px)
 
-// ---------- Glitch (doux)
+/* Couleur de référence (orange “memoria & Alma”) */
 const BASE_ORANGE = '#e39220';
 
-// ---------- Hover
+/* Hover */
 const HOVER_WORD = "AMAZONAS";
-const HOVER_GLITCH_BOOST = 1.35; // un peu plus fort en hover (mais doux)
+const HOVER_GLITCH_BOOST = 1.35; // glitch un peu plus fort en hover
+const HOVER_ITALIC = false;      // passe le texte en italique au survol si (et seulement si) la fonte italic est chargée
 
-// ---------- Padding autour du texte (pour la hauteur du canvas)
+/* Padding (hauteur du canvas) */
 const PAD_X = 16; // px
 const PAD_Y = 8;  // px
 
-// ---------- Optimisations Mobile
+/* Optimisations Mobile */
 const IS_MOBILE = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-const LITE_FRAME_MOD = IS_MOBILE ? 2 : 1; // sur mobile: heavy glitch 1 frame/2
+const LITE_FRAME_MOD = IS_MOBILE ? 2 : 1; // sur mobile: glitch “lourd” 1 frame/2
 
 /* ===================== STATE ===================== */
 
@@ -35,15 +40,23 @@ let noms = null, scrambler, nextChangeAt = 0;
 let pg, baseTextSize;
 let hoverNow = false, hoverPrev = false;
 
+/* Fonts */
+let fontRegular = null;
+let fontItalic  = null;
+
 /* ===================== p5 LIFECYCLE ===================== */
 
 function preload() {
-  // charge ton JSON (préférer servir via http, pas file://)
+  /* charge la police pour le canvas */
+  fontRegular = loadFont(FONT_REGULAR_PATH, null, (e)=>console.warn('[textSketch] Police regular introuvable:', e));
+  // italic optionnelle (pas obligatoire)
+  fontItalic  = loadFont(FONT_ITALIC_PATH,  null, ()=>{}); 
+
+  /* charge le JSON (serveur http conseillé, pas file://) */
   noms = loadJSON("noms.json");
 }
 
 function setup() {
-  // ancre dans #p5-hero
   const holder = document.getElementById("p5-hero");
   if (!holder) {
     console.error("[textSketch] Element #p5-hero introuvable.");
@@ -51,14 +64,14 @@ function setup() {
   }
 
   const w = holder.clientWidth || window.innerWidth;
-  const h = 100; // temporaire, on re-dimensionne juste après
+  const h = 100; // temporaire, ajusté juste après
   const c = createCanvas(w, h);
   c.parent("p5-hero");
 
   frameRate(IS_MOBILE ? 50 : FPS);
   pixelDensity(1);
 
-  textFont("monospace");
+  textFont(fontRegular || 'monospace');
   textAlign(CENTER, CENTER);
 
   if (!Array.isArray(noms)) noms = Object.values(noms);
@@ -68,11 +81,10 @@ function setup() {
 
   pg = createGraphics(width, height);
   pg.pixelDensity(1);
-  pg.textFont("monospace");
+  pg.textFont(fontRegular || 'monospace');
   pg.textAlign(CENTER, CENTER);
 
-  // premier layout pour que la hauteur colle au texte
-  layoutToHolder();
+  layoutToHolder(); // ajuste la taille/hauteur au texte
 }
 
 function windowResized() {
@@ -82,14 +94,13 @@ function windowResized() {
 function draw() {
   clear(); // canvas 100% transparent
 
-  // état hover par rapport au texte courant (même taille dans tous les cas)
   const currentText = scrambler.output;
   const currentSize = baseTextSize;
 
   hoverPrev = hoverNow;
   hoverNow = isMouseOverText(currentText, currentSize);
 
-  // en entrant en hover -> scramble vers AMAZONAS (puis fige une fois fini)
+  // en entrant en hover: scramble vers AMAZONAS (puis fige une fois fini)
   if (hoverNow && !hoverPrev) scrambler.setText(HOVER_WORD);
 
   if (hoverNow) {
@@ -99,13 +110,12 @@ function draw() {
   }
 
   // rendu du texte (blanc) dans le buffer transparent
-  renderTextToBuffer(pg, scrambler.output, currentSize);
+  renderTextToBuffer(pg, scrambler.output, currentSize, hoverNow);
 
-  // Mobile: on allège 1 frame sur 2 (on affiche juste le texte sans glitch “lourd”)
+  // Mobile: on allège 1 frame sur 2 (texte simple sans glitch)
   if (IS_MOBILE && (frameCount % LITE_FRAME_MOD !== 0)) {
     image(pg, 0, 0);
   } else {
-    // glitch doux: orangé en normal / blanc en hover
     const boost = hoverNow ? HOVER_GLITCH_BOOST : 1.0;
     drawGlitch(pg, boost, hoverNow);
   }
@@ -122,24 +132,22 @@ function layoutToHolder() {
 
   const w = holder.clientWidth || window.innerWidth;
 
-  // 1) trouver le libellé le plus large (par largeur réelle)
+  textFont(fontRegular || 'monospace');
+
   const candidates = (noms || []).concat([HOVER_WORD]);
   const widest = getWidestString(candidates.length ? candidates : [HOVER_WORD]);
 
-  // 2) trouver la taille de police max qui rentre en largeur (avec PAD_X)
   baseTextSize = fitTextSizeToWidth(widest, w - 2 * PAD_X);
 
-  // 3) calcul de la hauteur nécessaire = hauteur du texte + PAD_Y * 2
   textSize(baseTextSize);
   const th = textAscent() + textDescent();
   const h = Math.ceil(th + 2 * PAD_Y);
 
-  // 4) resize canvas et buffer
   resizeCanvas(w, h);
 
   pg = createGraphics(w, h);
   pg.pixelDensity(1);
-  pg.textFont("monospace");
+  pg.textFont(fontRegular || 'monospace');
   pg.textAlign(CENTER, CENTER);
   pg.textSize(baseTextSize);
 }
@@ -162,8 +170,7 @@ class TextScrambler {
       const fromChar = from[i] || "";
       const toChar   = to[i] || "";
       const start = Math.floor(random(0, PER_CHAR_MIN));
-      // sur mobile, on raccourcit un peu la durée max pour réactivité
-      const perCharMax = IS_MOBILE ? Math.max(6, PER_CHAR_MAX - 2) : PER_CHAR_MAX;
+      const perCharMax = IS_MOBILE ? Math.max(6, PER_CHAR_MAX - 2) : PER_CHAR_MAX; // un peu plus court sur mobile
       const end   = start + Math.floor(random(PER_CHAR_MIN, perCharMax));
       this.queue.push({ fromChar, toChar, start, end, char: "" });
     }
@@ -177,8 +184,7 @@ class TextScrambler {
       if (this.frame < item.start)       result += item.fromChar || " ";
       else if (this.frame >= item.end) { result += item.toChar || " "; complete++; }
       else {
-        // sur mobile, on “rafraîchit” un peu moins souvent les lettres aléatoires
-        const mod = IS_MOBILE ? 3 : 2;
+        const mod = IS_MOBILE ? 3 : 2; // random un peu moins souvent sur tel
         if (frameCount % mod === 0 || !item.char) item.char = randomChar();
         result += item.char;
       }
@@ -195,12 +201,13 @@ function randomChar() {
 
 /* ===================== RENDU & HITBOX ===================== */
 
-function renderTextToBuffer(buffer, textStr, sizePx) {
+function renderTextToBuffer(buffer, textStr, sizePx, hoverMode) {
   buffer.clear();
   buffer.push();
+  buffer.textFont((hoverMode && HOVER_ITALIC && fontItalic) ? fontItalic : (fontRegular || 'monospace'));
   buffer.textSize(sizePx);
   buffer.noStroke();
-  buffer.fill(255); // texte blanc (couleur du glow gérée dans glitch)
+  buffer.fill(255); // texte blanc (les halos/couleurs sont gérés dans glitch)
   // micro jitter
   const jx = random(-0.25, 0.25), jy = random(-0.25, 0.25);
   buffer.translate(jx, jy);
@@ -209,6 +216,7 @@ function renderTextToBuffer(buffer, textStr, sizePx) {
 }
 
 function isMouseOverText(textStr, sizePx) {
+  textFont(fontRegular || 'monospace');
   push();
   textSize(sizePx);
   const tw = textWidth(textStr || "A");
@@ -222,7 +230,7 @@ function isMouseOverText(textStr, sizePx) {
 
 /* ===================== GLITCH ===================== */
 
-// variations orangées autour de BASE_ORANGE (HSB) pour un rendu vivant mais proche
+// variations orangées autour de BASE_ORANGE (HSB)
 function makeWarmTones(intensity = 1) {
   push();
   colorMode(HSB, 360, 100, 100, 255);
@@ -239,40 +247,36 @@ function drawGlitch(src, boost = 1.0, hoverMode = false) {
   const time = millis() * 0.001;
   const wave = Math.sin(time * 2.5) * 0.5 + 0.5;      // 0..1 respiration douce
   const intensity = lerp(0.35, 0.9, wave) * boost;
-  const offset = 1.2 * intensity;                     // décalage subtil
+  const offset = 1.2 * intensity;
 
-  // jitter global léger (pour tout le rendu)
+  // jitter global léger
   const jx = random(-0.3, 0.3) * boost;
   const jy = random(-0.3, 0.3) * boost;
 
-  // --- COUCHES PRINCIPALES ---
+  // COUCHES PRINCIPALES
   push();
   translate(jx, jy);
 
   if (hoverMode) {
-    // BLANC (hover) — 2 couches suffisent
+    // Blanc (hover) — 2 couches suffisent
     tint(255, 230); image(src, 0, 0);
     tint(255, 160); image(src,  offset, -offset);
   } else {
-    // ORANGÉ (normal) basé sur BASE_ORANGE avec légères variations
+    // Orange (normal) — variations légères
     const [c1, c2, c3] = makeWarmTones(intensity);
     if (IS_MOBILE) {
-      // lite mobile: 2 couches
       tint(c1); image(src,  offset, -offset);
       tint(c2); image(src, -offset,  offset);
     } else {
-      // desktop: 3 couches
       tint(c1); image(src,  offset, -offset);
       tint(c2); image(src, -offset,  offset);
       tint(c3); image(src,  0,       0);
     }
   }
-
   pop();
   noTint();
 
-  // --- BANDES VERTICALES AU-DESSUS DU TEXTE (rapides) ---
-  // On évite src.get() (coûteux). On décale des fines colonnes avec copy(...).
+  // BANDES VERTICALES (rapides, sans get()):
   const stripes = Math.floor(
     random(
       Math.max(1, VSTRIPE_COUNT_MIN - (IS_MOBILE ? 1 : 0)),
@@ -287,7 +291,7 @@ function drawGlitch(src, boost = 1.0, hoverMode = false) {
       sx + random(-VSTRIPE_OFFSET_MAX, VSTRIPE_OFFSET_MAX) * intensity * (hoverMode ? 1.4 : 1.0)
     );
 
-    // Décale la tranche verticalement sur le canvas final (rapide, pas de coloration supplémentaire)
+    // décale de fines colonnes du buffer texte directement sur le canvas
     copy(src, sx, 0, sw, height, dx, 0, sw, height);
   }
 }
@@ -295,8 +299,9 @@ function drawGlitch(src, boost = 1.0, hoverMode = false) {
 /* ===================== OUTILS TEXTE ===================== */
 
 function getWidestString(strings) {
+  textFont(fontRegular || 'monospace');
   push();
-  textSize(200); // taille test grande pour une mesure stable
+  textSize(200); // mesure stable
   let maxW = -1, widest = strings[0] || "";
   for (const s of strings) {
     const w = textWidth(s);
@@ -307,7 +312,7 @@ function getWidestString(strings) {
 }
 
 function fitTextSizeToWidth(textStr, targetWidth) {
-  // recherche binaire de la taille de police qui rentre en largeur
+  textFont(fontRegular || 'monospace');
   let lo = 6, hi = 3000, best = 32;
   while (lo <= hi) {
     const mid = (lo + hi) >> 1;
@@ -326,5 +331,3 @@ function changeToRandomName() {
   scrambler.setText(target);
   nextChangeAt = millis() + INTERVAL_BETWEEN_WORDS;
 }
-
-
