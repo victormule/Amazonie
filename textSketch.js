@@ -6,7 +6,7 @@ const FONT_REGULAR_PATH = 'fonts/HighVoltage Rough.ttf';
 
 /* Animation */
 const LETTERS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZàâäçéèêëîïôöùûüáíóúãõñ -";
-const INTERVAL_BETWEEN_WORDS = 600;
+const INTERVAL_BETWEEN_WORDS = 700;
 const PER_CHAR_MIN = 6;
 const PER_CHAR_MAX = 14;
 const FPS = 60;
@@ -381,3 +381,4 @@ function changeToRandomName() {
   scrambler.setText(target);
   nextChangeAt = millis() + INTERVAL_BETWEEN_WORDS;
 }
+
