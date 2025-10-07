@@ -405,21 +405,33 @@ button[disabled]{ opacity:.6; cursor:not-allowed; }
   #p5-hero { width: 100%; }
 }
 
+/* 1) Déclare la police (garde les guillemets si le fichier a un espace) */
 @font-face {
   font-family: 'HighVoltageRough';
-  src: url('/fonts/HighVoltage Rough.ttf') format('truetype'); 
+  src: url('/fonts/HighVoltage Rough.ttf') format('truetype');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
 
-
+/* 2) Style du sous-titre */
 .memoria-alma {
   font-family: 'HighVoltageRough', system-ui, sans-serif;
-  letter-spacing: .02em;     /* optionnel */
+  color: #e39220;                 /* orange comme avant */
+  font-size: clamp(28px, 6.2vw, 96px); /* plus gros + responsive */
+  line-height: 1.05;              /* serré (ajuste si besoin) */
+  letter-spacing: 0.02em;         /* léger tracking */
+  text-align: center;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  margin: 0.3em auto 0.1em;       /* un peu d’air */
 }
+
+/* (optionnel) sur mobile très étroit, encore un poil plus gros/centré */
+@media (max-width: 420px) {
+  .memoria-alma { font-size: clamp(28px, 8.5vw, 72px); }
+}
+
 
 
 
