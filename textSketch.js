@@ -5,19 +5,21 @@ const PER_CHAR_MIN = 6;
 const PER_CHAR_MAX = 18;
 const FPS = 60;
 
-// ---------- Glitch
-const SCANLINE_ALPHA = 10;
-const BASE_OFFSET = 1.5;
-const BASE_SLICE_DX = 6;
-const BASE_SLICE_COUNT_MIN = 1;
-const BASE_SLICE_COUNT_MAX = 2;
+// ---------- Glitch (doux, sans bandes ni scanlines)
+const ORANGE_1 = () => color(255, 180, 100, 120);
+const ORANGE_2 = () => color(255, 120,  60, 100);
+const ORANGE_3 = () => color(255, 220, 160, 90);
 
 // ---------- Hover
 const HOVER_WORD = "AMAZONAS";
-const HOVER_GLITCH_BOOST = 1.6;
+const HOVER_GLITCH_BOOST = 1.35; // un peu plus fort en hover (mais doux)
+
+// ---------- Padding autour du texte (pour la hauteur du canvas)
+const PAD_X = 16; // px
+const PAD_Y = 8;  // px
 
 let noms = null, scrambler, nextChangeAt = 0;
-let pg, scanlines, baseTextSize;
+let pg, baseTextSize;
 let hoverNow = false, hoverPrev = false;
 
 function preload() {
@@ -25,11 +27,10 @@ function preload() {
 }
 
 function setup() {
-  // ancre le canvas dans #p5-hero
+  // ancre dans #p5-hero
   const holder = document.getElementById("p5-hero");
   const w = holder.clientWidth || window.innerWidth;
-  const h = holder.clientHeight || Math.max(260, window.innerHeight * 0.35);
-
+  const h = 100; // temporaire, on re-dimensionne juste après
   const c = createCanvas(w, h);
   c.parent("p5-hero");
 
@@ -37,8 +38,6 @@ function setup() {
   pixelDensity(1);
   textFont("monospace");
   textAlign(CENTER, CENTER);
-  baseTextSize = Math.min(width, height) * 0.32; // plus grand car c'est un titre
-  textSize(baseTextSize);
 
   if (!Array.isArray(noms)) noms = Object.values(noms);
 
@@ -49,70 +48,67 @@ function setup() {
   pg.pixelDensity(1);
   pg.textFont("monospace");
   pg.textAlign(CENTER, CENTER);
-  pg.textSize(baseTextSize);
 
-  scanlines = createGraphics(width, height);
-  scanlines.pixelDensity(1);
-  scanlines.clear();
-  if (SCANLINE_ALPHA > 0) {
-    scanlines.stroke(255, SCANLINE_ALPHA);
-    for (let y = 0; y < height; y += 3) scanlines.line(0, y + 0.5, width, y + 0.5);
-  }
+  // premier layout pour que la hauteur colle au texte
+  layoutToHolder();
 }
 
 function windowResized() {
+  layoutToHolder();
+}
+
+function layoutToHolder() {
   const holder = document.getElementById("p5-hero");
   const w = holder.clientWidth || window.innerWidth;
-  const h = holder.clientHeight || Math.max(260, window.innerHeight * 0.35);
 
-  resizeCanvas(w, h);
-  baseTextSize = Math.min(width, height) * 0.32;
+  // 1) trouver le libellé le plus large (par largeur réelle)
+  const candidates = (noms || []).concat([HOVER_WORD]);
+  const widest = getWidestString(candidates);
+
+  // 2) trouver la taille de police max qui rentre en largeur (avec PAD_X)
+  baseTextSize = fitTextSizeToWidth(widest, w - 2 * PAD_X);
+
+  // 3) calcul de la hauteur nécessaire = hauteur du texte + PAD_Y * 2
   textSize(baseTextSize);
+  const th = textAscent() + textDescent();
+  const h = Math.ceil(th + 2 * PAD_Y);
 
-  pg = createGraphics(width, height);
+  // 4) resize canvas et buffer
+  resizeCanvas(w, h);
+  pg = createGraphics(w, h);
   pg.pixelDensity(1);
   pg.textFont("monospace");
   pg.textAlign(CENTER, CENTER);
   pg.textSize(baseTextSize);
-
-  scanlines = createGraphics(width, height);
-  scanlines.pixelDensity(1);
-  scanlines.clear();
-  if (SCANLINE_ALPHA > 0) {
-    scanlines.stroke(255, SCANLINE_ALPHA);
-    for (let y = 0; y < height; y += 3) scanlines.line(0, y + 0.5, width, y + 0.5);
-  }
 }
 
 function draw() {
-  clear(); // fond transparent pour épouser le hero existant
+  clear(); // canvas 100% transparent
 
-  // texte courant
+  // état hover par rapport au texte courant (même taille dans tous les cas)
   const currentText = scrambler.output;
   const currentSize = baseTextSize;
 
-  // survol basé sur la bounding box du texte centré
   hoverPrev = hoverNow;
   hoverNow = isMouseOverText(currentText, currentSize);
 
-  // si on vient d'entrer en hover -> scramble vers AMAZONAS
+  // en entrant en hover -> scramble vers AMAZONAS (puis figer une fois fini)
   if (hoverNow && !hoverPrev) scrambler.setText(HOVER_WORD);
 
-  // update (en hover, on fige une fois AMAZONAS atteint)
   if (hoverNow) {
     if (!scrambler.done) scrambler.update();
   } else {
     scrambler.update();
   }
 
-  // rendu texte -> buffer
-  renderTextToBuffer(pg, scrambler.output, currentSize, hoverNow);
+  // rendu du texte (blanc) dans le buffer transparent
+  renderTextToBuffer(pg, scrambler.output, currentSize);
 
-  // glitch : blanc boosté en hover, orangé doux sinon
+  // glitch doux, orangé (normal) / blanc (hover), pas de bandes
   const boost = hoverNow ? HOVER_GLITCH_BOOST : 1.0;
   drawGlitch(pg, boost, hoverNow);
 
-  // cycle mots seulement hors hover
+  // cycle des mots uniquement hors hover
   if (!hoverNow && scrambler.done && millis() >= nextChangeAt) changeToRandomName();
 }
 
@@ -164,14 +160,14 @@ class TextScrambler {
 
 function randomChar() { return LETTERS.charAt(Math.floor(random(LETTERS.length))); }
 
-// ---------- helpers rendu & hitbox
-function renderTextToBuffer(buffer, textStr, sizePx, hoverMode) {
+// ---------- Rendu & hitbox
+function renderTextToBuffer(buffer, textStr, sizePx) {
   buffer.clear();
   buffer.push();
   buffer.textSize(sizePx);
   buffer.noStroke();
-  buffer.fill(255); // texte blanc (les halos/couleurs sont gérés après)
-  const jx = random(-0.3, 0.3), jy = random(-0.3, 0.3);
+  buffer.fill(255); // texte blanc
+  const jx = random(-0.25, 0.25), jy = random(-0.25, 0.25);
   buffer.translate(jx, jy);
   buffer.text(textStr, buffer.width / 2, buffer.height / 2);
   buffer.pop();
@@ -185,55 +181,61 @@ function isMouseOverText(textStr, sizePx) {
   pop();
   const cx = width / 2, cy = height / 2;
   const x1 = cx - tw / 2, y1 = cy - th / 2, x2 = cx + tw / 2, y2 = cy + th / 2;
-  const pad = 8;
+  const pad = 6;
   return (mouseX >= x1 - pad && mouseX <= x2 + pad && mouseY >= y1 - pad && mouseY <= y2 + pad);
 }
 
-// ---------- GLITCH
+// ---------- GLITCH (copies teintées, pas de bandes/scanlines)
 function drawGlitch(src, boost = 1.0, hoverMode = false) {
   const time = millis() * 0.001;
-  const wave = Math.sin(time * 2.5) * 0.5 + 0.5;   // 0..1
-  const intensity = lerp(0.4, 1.0, wave) * boost;
-  const offset = BASE_OFFSET * intensity;
+  const wave = Math.sin(time * 2.5) * 0.5 + 0.5; // 0..1
+  const intensity = lerp(0.35, 0.9, wave) * boost;
+  const offset = 1.2 * intensity; // subtil
+
+  const jx = random(-0.3, 0.3) * boost;
+  const jy = random(-0.3, 0.3) * boost;
+
+  push();
+  translate(jx, jy);
 
   if (hoverMode) {
-    const jx = random(-0.4, 0.4) * boost, jy = random(-0.4, 0.4) * boost;
-    push(); translate(jx, jy);
+    // Blanc renforcé
     tint(255, 230); image(src, 0, 0);
-    tint(255, 160); image(src,  offset, -offset);
-    tint(255, 140); image(src, -offset,  offset);
-    pop(); noTint();
-
-    const slices = Math.floor(random(BASE_SLICE_COUNT_MIN + 1, BASE_SLICE_COUNT_MAX + 2));
-    for (let i = 0; i < slices; i++) {
-      const sh = Math.floor(random(4, 12));
-      const sy = Math.floor(random(0, height - sh));
-      const dx = random(-BASE_SLICE_DX * 1.5, BASE_SLICE_DX * 1.5) * intensity;
-      push(); tint(255, 150); copy(src, 0, sy, width, sh, dx, sy, width, sh); pop();
-    }
+    tint(255, 150); image(src,  offset, -offset);
+    tint(255, 130); image(src, -offset,  offset);
   } else {
-    const col1 = color(255,180,100, 150 * intensity);
-    const col2 = color(255,100, 50, 140 * intensity);
-    const col3 = color(255,220,160, 120 * intensity);
-    const jx = random(-0.3, 0.3), jy = random(-0.3, 0.3);
-    push(); translate(jx, jy);
-    tint(col1); image(src,  offset, -offset);
-    tint(col2); image(src, -offset,  offset);
-    tint(col3); image(src,  0,       0);
-    pop(); noTint();
-
-    const sliceCount = Math.floor(random(BASE_SLICE_COUNT_MIN, BASE_SLICE_COUNT_MAX + 1));
-    for (let i = 0; i < sliceCount; i++) {
-      const sh = Math.floor(random(3, 10));
-      const sy = Math.floor(random(0, height - sh));
-      const dx = random(-BASE_SLICE_DX, BASE_SLICE_DX) * intensity;
-      push(); tint(255, 120); copy(src, 0, sy, width, sh, dx, sy, width, sh); pop();
-    }
-    // halo orangé très léger
-    push(); noStroke(); fill(255,150,80, 8 * intensity); rect(0,0,width,height); pop();
+    // Orangés doux
+    tint(ORANGE_1()); image(src,  offset, -offset);
+    tint(ORANGE_2()); image(src, -offset,  offset);
+    tint(ORANGE_3()); image(src,  0,       0);
   }
 
-  if (SCANLINE_ALPHA > 0) {
-    push(); blendMode(OVERLAY); image(scanlines, 0, 0); pop();
+  pop();
+  noTint();
+}
+
+// ---------- Utilitaires taille/largeur
+function getWidestString(strings) {
+  push();
+  textSize(200); // taille test
+  let maxW = -1, widest = strings[0] || "";
+  for (const s of strings) {
+    const w = textWidth(s);
+    if (w > maxW) { maxW = w; widest = s; }
   }
+  pop();
+  return widest;
+}
+
+function fitTextSizeToWidth(textStr, targetWidth) {
+  // recherche binaire de la taille de police qui rentre en largeur
+  let lo = 6, hi = 3000, best = 32;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    textSize(mid);
+    const tw = textWidth(textStr);
+    if (tw <= targetWidth) { best = mid; lo = mid + 1; }
+    else { hi = mid - 1; }
+  }
+  return best;
 }
