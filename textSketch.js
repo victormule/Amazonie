@@ -1,7 +1,7 @@
 /* ===================== CONFIG ===================== */
 
 /* Police Dafont (mets les fichiers dans /fonts) */
-const FONT_REGULAR_PATH = 'fonts/dubellay.ttf';
+const FONT_REGULAR_PATH = 'HighVoltage Rough.ttf';
 const FONT_ITALIC_PATH  = 'fonts/dubellit.ttf'; // optionnel (voir HOVER_ITALIC)
 
 /* Animation */
@@ -331,3 +331,4 @@ function changeToRandomName() {
   scrambler.setText(target);
   nextChangeAt = millis() + INTERVAL_BETWEEN_WORDS;
 }
+
