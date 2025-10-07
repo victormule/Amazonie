@@ -1,5 +1,5 @@
 // ---------- Paramètres animation
-const LETTERS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZàâäçéèêëîïôöùûüáíóúãõñ() -";
+const LETTERS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZàâäçéèêëîïôöùûüáíóúãõñ -";
 const INTERVAL_BETWEEN_WORDS = 500;
 const PER_CHAR_MIN = 6;
 const PER_CHAR_MAX = 18;
@@ -239,3 +239,4 @@ function fitTextSizeToWidth(textStr, targetWidth) {
   }
   return best;
 }
+
