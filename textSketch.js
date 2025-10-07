@@ -28,7 +28,9 @@ const HOVER_ITALIC = false;      // si tu ajoutes dubellit.ttf, tu peux passer Ã
 
 /* Padding (hauteur du canvas) */
 const PAD_X = 16; // px
-const PAD_Y = 8;  // px
+const PAD_Y = 88;  // px
+
+
 
 /* Optimisations Mobile */
 const IS_MOBILE = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
@@ -337,4 +339,5 @@ function changeToRandomName() {
   scrambler.setText(target);
   nextChangeAt = millis() + INTERVAL_BETWEEN_WORDS;
 }
+
 
