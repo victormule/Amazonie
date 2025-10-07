@@ -388,4 +388,24 @@ button[disabled]{ opacity:.6; cursor:not-allowed; }
   outline-offset:2px;
 }
 
+/* le bloc hero doit être positionné pour ancrer le canvas */
+#p5-hero {
+  position: relative;
+  width: 100%;
+  min-height: 30vh;          /* ajuste à la hauteur de ton bandeau */
+  /* si ton hero a déjà une hauteur, garde celle-là */
+}
+
+/* le canvas p5 doit couvrir le conteneur */
+#p5-hero canvas {
+  position: absolute !important;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+  z-index: 1;                /* au-dessus du fond, en-dessous d’un éventuel overlay */
+}
+
+/* si tu as un texte overlay par-dessus, donne-lui z-index:2 */
+
 
