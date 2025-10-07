@@ -208,14 +208,15 @@ function isMouseOverText(textStr, sizePx) {
 // ---------- GLITCH (copies teintées, pas de bandes/scanlines)
 function drawGlitch(src, boost = 1.0, hoverMode = false) {
   const time = millis() * 0.001;
-  const wave = Math.sin(time * 2.5) * 0.5 + 0.5;   // 0..1 respiration douce
+  const wave = Math.sin(time * 2.5) * 0.5 + 0.5;      // 0..1 respiration douce
   const intensity = lerp(0.35, 0.9, wave) * boost;
-  const offset = 1.2 * intensity; // décalage très subtil
+  const offset = 1.2 * intensity;                     // décalage subtil
 
-  // --- couches principales (orangé doux) OU blanc (hover) ---
+  // jitter global léger (pour tout le rendu)
   const jx = random(-0.3, 0.3) * boost;
   const jy = random(-0.3, 0.3) * boost;
 
+  // --- COUCHES PRINCIPALES ---
   push();
   translate(jx, jy);
 
@@ -225,36 +226,47 @@ function drawGlitch(src, boost = 1.0, hoverMode = false) {
     tint(255, 160); image(src,  offset, -offset);
     tint(255, 140); image(src, -offset,  offset);
   } else {
-const [col1, col2, col3] = makeWarmTones(intensity);
+    // ORANGÉ (normal) basé sur BASE_ORANGE avec légères variations
+    const [col1, col2, col3] = makeWarmTones(intensity);
+    tint(col1); image(src,  offset, -offset);
+    tint(col2); image(src, -offset,  offset);
+    tint(col3); image(src,  0,       0);
+  }
 
-const jitterX = random(-0.3, 0.3);
-const jitterY = random(-0.3, 0.3);
+  pop();          // <-- on referme bien le push() principal
+  noTint();
 
-push();
-translate(jitterX, jitterY);
-tint(col1); image(src,  offset, -offset);
-tint(col2); image(src, -offset,  offset);
-tint(col3); image(src,  0,       0);
-pop();
-noTint();
-    
-  // --- BANDES VERTICALES sur le TEXTE ---
-  // (on extrait de fines colonnes du buffer src et on les re-dessine légèrement décalées)
+  // --- BANDES VERTICALES AU-DESSUS DU TEXTE (dans les 2 modes) ---
   const stripes = Math.floor(random(VSTRIPE_COUNT_MIN, VSTRIPE_COUNT_MAX + 1));
   for (let i = 0; i < stripes; i++) {
     const sw = Math.floor(random(VSTRIPE_WIDTH_MIN, VSTRIPE_WIDTH_MAX + 1));
     const sx = Math.floor(random(0, width - sw));
-    const dx = Math.floor(sx + random(-VSTRIPE_OFFSET_MAX, VSTRIPE_OFFSET_MAX) * intensity * (hoverMode ? 1.4 : 1.0));
+    const dx = Math.floor(
+      sx + random(-VSTRIPE_OFFSET_MAX, VSTRIPE_OFFSET_MAX) * intensity * (hoverMode ? 1.4 : 1.0)
+    );
 
-    // on récupère la petite tranche (image), puis on la redessine (tint s'applique à image(), pas à copy())
+    // extrait une fine colonne du buffer texte
     const stripeImg = src.get(sx, 0, sw, height);
 
     if (hoverMode) {
-      tint(255, VSTRIPE_ALPHA_HOVER);      // blanc un peu plus présent
+      // bandes blanches un peu plus présentes
+      tint(255, VSTRIPE_ALPHA_HOVER);
     } else {
-      tint(255, 200, 140, VSTRIPE_ALPHA_NORMAL); // teinte orangée douce
+      // bandes orangées proches de BASE_ORANGE, parfois un peu plus claires
+      push();
+      colorMode(HSB, 360, 100, 100, 255);
+      const base = color(BASE_ORANGE);
+      const stripeTint = color(
+        hue(base) + random(-1, 1),
+        saturation(base) * 0.95,
+        constrain(brightness(base) + random(2, 10), 0, 100),
+        VSTRIPE_ALPHA_NORMAL
+      );
+      pop();
+      tint(stripeTint);
     }
-    image(stripeImg, dx, 0); // même x +/- décalage, même hauteur
+
+    image(stripeImg, dx, 0);
     noTint();
   }
 }
@@ -285,6 +297,7 @@ function fitTextSizeToWidth(textStr, targetWidth) {
   }
   return best;
 }
+
 
 
 
