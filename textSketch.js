@@ -2,9 +2,9 @@
 
 // ---------- Paramètres animation
 const LETTERS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZàâäçéèêëîïôöùûüáíóúãõñ -";
-const INTERVAL_BETWEEN_WORDS = 500;
+const INTERVAL_BETWEEN_WORDS = 650;
 const PER_CHAR_MIN = 6;
-const PER_CHAR_MAX = 18;
+const PER_CHAR_MAX = 14;
 const FPS = 60;
 
 // --- Bandes VERTICALES (sur le texte seulement) ---
@@ -326,4 +326,5 @@ function changeToRandomName() {
   scrambler.setText(target);
   nextChangeAt = millis() + INTERVAL_BETWEEN_WORDS;
 }
+
 
