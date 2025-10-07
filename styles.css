@@ -390,7 +390,7 @@ button[disabled]{ opacity:.6; cursor:not-allowed; }
 
 /* Canvas textSketch.js (Titre animation) */
 #p5-hero {
-  width: 80%;
+  width: 70%;
   margin: 0 auto;        /* centre horizontalement */
   position: relative;    /* garde si tu l'utilises pour ancrer le canvas */
 }
@@ -404,6 +404,7 @@ button[disabled]{ opacity:.6; cursor:not-allowed; }
 @media (max-width: 768px) {
   #p5-hero { width: 100%; }
 }
+
 
 
 
