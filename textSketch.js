@@ -15,9 +15,7 @@ const VSTRIPE_ALPHA_NORMAL = 110; // opacité bandes (mode normal)
 const VSTRIPE_ALPHA_HOVER  = 170; // opacité bandes (hover)
 
 // ---------- Glitch (doux, sans bandes ni scanlines)
-const ORANGE_1 = () => color(255, 180, 100, 120);
-const ORANGE_2 = () => color(255, 60,  60, 50);
-const ORANGE_3 = () => color(255, 220, 160, 90);
+const BASE_ORANGE = '#F08B3C'; // ← remplace par ton hex si différent
 
 // ---------- Hover
 const HOVER_WORD = "AMAZONAS";
@@ -60,6 +58,19 @@ function setup() {
 
   // premier layout pour que la hauteur colle au texte
   layoutToHolder();
+}
+function makeWarmTones(intensity = 1) {
+  push();
+  colorMode(HSB, 360, 100, 100, 255);
+  const base = color(BASE_ORANGE);
+  const h = hue(base), s = saturation(base), b = brightness(base);
+
+  // 3 tons proches : même teinte ±2°, +légère variation de luminosité
+  const c1 = color(h + random(-2, 2), s * 1.00, constrain(b + random(2, 8), 0, 100), 150 * intensity);
+  const c2 = color(h + random(-2, 2), s * 0.96, constrain(b + random(0, 6), 0, 100), 130 * intensity);
+  const c3 = color(h + random(-1, 1), s * 0.92, constrain(b + random(-2, 4), 0, 100), 110 * intensity);
+  pop();
+  return [c1, c2, c3];
 }
 
 function windowResized() {
@@ -269,6 +280,7 @@ function fitTextSizeToWidth(textStr, targetWidth) {
   }
   return best;
 }
+
 
 
 
