@@ -8,7 +8,7 @@ const FONT_REGULAR_PATH = 'fonts/HighVoltage Rough.ttf';   // assure-toi que ce 
 const LETTERS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZàâäçéèêëîïôöùûüáíóúãõñ -";
 const INTERVAL_BETWEEN_WORDS = 600;
 const PER_CHAR_MIN = 6;
-const PER_CHAR_MAX = 10;
+const PER_CHAR_MAX = 14;
 const FPS = 60;
 
 /* Bandes VERTICALES (sur le texte) */
@@ -28,7 +28,7 @@ const HOVER_ITALIC = false;      // si tu ajoutes dubellit.ttf, tu peux passer �
 
 /* Padding (hauteur du canvas) */
 const PAD_X = 16; // px
-const PAD_Y = 20;  // px
+const PAD_Y = 26;  // px
 
 
 
@@ -339,6 +339,7 @@ function changeToRandomName() {
   scrambler.setText(target);
   nextChangeAt = millis() + INTERVAL_BETWEEN_WORDS;
 }
+
 
 
 
