@@ -239,7 +239,20 @@ function isMouseOverText(textStr, sizePx) {
 /* ===================== GLITCH ===================== */
 
 // variations orangées autour de BASE_ORANGE (HSB)
+// variations orangées autour de BASE_ORANGE (HSB)
+// -> sur mobile: AUCUNE variation (couleur fixe) pour éviter le flicker
 function makeWarmTones(intensity = 1) {
+  if (IS_MOBILE) {
+    const base = color(BASE_ORANGE);
+    // même couleur, alphas stables
+    return [
+      color(red(base), green(base), blue(base), 150),
+      color(red(base), green(base), blue(base), 130),
+      color(red(base), green(base), blue(base), 110),
+    ];
+  }
+
+  // Desktop: petites variations
   push();
   colorMode(HSB, 360, 100, 100, 255);
   const base = color(BASE_ORANGE);
@@ -252,9 +265,9 @@ function makeWarmTones(intensity = 1) {
 }
 
 function drawGlitch(src, boost = 1.0, hoverMode = false) {
-  const time = millis() * 0.001;
-  const wave = Math.sin(time * 2.5) * 0.5 + 0.5;      // 0..1 respiration douce
-  const intensity = lerp(0.35, 0.9, wave) * boost;
+const time = millis() * 0.001;
+const wave = Math.sin(time * 2.5) * 0.5 + 0.5;
+const intensity = (IS_MOBILE ? 0.7 : lerp(0.35, 0.9, wave)) * boost;
   const offset = 1.2 * intensity;
 
   // jitter global léger
@@ -339,6 +352,7 @@ function changeToRandomName() {
   scrambler.setText(target);
   nextChangeAt = millis() + INTERVAL_BETWEEN_WORDS;
 }
+
 
 
 
