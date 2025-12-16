@@ -37,7 +37,7 @@
     function computeCanvasHeight() {
       // Ajuste automatique approx selon longueur (safe)
       // Si tu veux fixe: return 260;
-      return 160;
+      return 200;
     }
 
     p.setup = () => {
