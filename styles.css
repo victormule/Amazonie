@@ -434,8 +434,9 @@ button[disabled]{ opacity:.6; cursor:not-allowed; }
 
 #manifeste {
   max-width: 900px;
-  margin: 0 auto 1.2rem;
+  margin: 0 auto 0.4rem;
 }
+
 
 
 
