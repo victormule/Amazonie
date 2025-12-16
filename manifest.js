@@ -108,8 +108,7 @@
 
       p.push();
       // Couleur du texte : noir (si ton fond est sombre, mets 255)
-      p.color(255);
-      p.fill(0, alpha);
+      p.fill(255, alpha);
       p.noStroke();
       p.text(shown, x, y, textBoxW, p.height - TOP_PADDING * 2);
       p.pop();
