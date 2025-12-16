@@ -433,9 +433,10 @@ button[disabled]{ opacity:.6; cursor:not-allowed; }
 }
 
 #manifeste {
-  max-width: 600px;
+  max-width: 900px;
   margin: 0 auto 1.2rem;
 }
+
 
 
 
