@@ -432,6 +432,11 @@ button[disabled]{ opacity:.6; cursor:not-allowed; }
   .memoria-alma { font-size: clamp(28px, 8.5vw, 72px); }
 }
 
+#manifeste {
+  max-width: 900px;
+  margin: 0 auto 1.2rem;
+}
+
 
 
 
