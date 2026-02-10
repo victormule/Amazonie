@@ -11,17 +11,37 @@ const RECORDING_TIMESLICE = 1000;            // ms
 
 // Artefatos da galeria
 const IMAGES = [
-  { src: "assets/image1.png",  alt: "Peitoral de penas e contas" },
-  { src: "assets/image2.png",  alt: "Cinto trançado com penas" },
-  { src: "assets/image3.png",  alt: "Coroa cerimonial" },
-  { src: "assets/image4.png",  alt: "Cesto ritual" },
-  { src: "assets/image5.png",  alt: "Pente frontal" },
-  { src: "assets/image6.png",  alt: "Brincos de penas" },
-  { src: "assets/image7.png",  alt: "Coroa cerimonial" },
-  { src: "assets/image8.png",  alt: "Cesto ritual" },
-  { src: "assets/image9.png",  alt: "Pente frontal" },
-  { src: "assets/image10.png", alt: "Brincos de penas" },
-  { src: "assets/image10.png", alt: "Brincos de penas" }
+{ src: "assets/image1.png",  alt: "Peitoral de penas e contas" },
+{ src: "assets/image2.png",  alt: "Cinto trançado com penas" },
+{ src: "assets/image3.png",  alt: "Coroa cerimonial" },
+{ src: "assets/image4.png",  alt: "Cesto ritual" },
+{ src: "assets/image5.png",  alt: "Pente frontal" },
+{ src: "assets/image6.png",  alt: "Brincos de penas" },
+{ src: "assets/image7.png",  alt: "Coroa cerimonial" },
+{ src: "assets/image8.png",  alt: "Cesto ritual" },
+{ src: "assets/image9.png",  alt: "Pente frontal" },
+{ src: "assets/image10.png", alt: "Brincos de penas" },
+{ src: "assets/image11.png", alt: "Artefact" },
+{ src: "assets/image12.png", alt: "Artefact" },
+{ src: "assets/image13.png", alt: "Artefact" },
+{ src: "assets/image14.png", alt: "Artefact" },
+{ src: "assets/image15.png", alt: "Artefact" },
+{ src: "assets/image16.png", alt: "Artefact" },
+{ src: "assets/image17.png", alt: "Artefact" },
+{ src: "assets/image18.png", alt: "Artefact" },
+{ src: "assets/image19.png", alt: "Artefact" },
+{ src: "assets/image20.png", alt: "Artefact" },
+{ src: "assets/image21.png", alt: "Artefact" },
+{ src: "assets/image22.png", alt: "Artefact" },
+{ src: "assets/image23.png", alt: "Artefact" },
+{ src: "assets/image24.png", alt: "Artefact" },
+{ src: "assets/image25.png", alt: "Artefact" },
+{ src: "assets/image26.png", alt: "Artefact" },
+{ src: "assets/image27.png", alt: "Artefact" },
+{ src: "assets/image28.png", alt: "Artefact" },
+{ src: "assets/image29.png", alt: "Artefact" },
+{ src: "assets/image30.png", alt: "Artefact" }
+   
 ];
 
 /* ======= HELPERS ======= */
@@ -913,6 +933,7 @@ document.addEventListener("DOMContentLoaded", () => {
   loadArtefacts();          // loads the first batch
   initInfiniteScroll();     // sets up the observer to load the rest
 });
+
 
 
 
