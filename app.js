@@ -20,6 +20,7 @@ const IMAGES = [
   { src: "assets/image7.png",  alt: "Coroa cerimonial" },
   { src: "assets/image8.png",  alt: "Cesto ritual" },
   { src: "assets/image9.png",  alt: "Pente frontal" },
+  { src: "assets/image10.png", alt: "Brincos de penas" },
   { src: "assets/image10.png", alt: "Brincos de penas" }
 ];
 
@@ -912,6 +913,7 @@ document.addEventListener("DOMContentLoaded", () => {
   loadArtefacts();          // loads the first batch
   initInfiniteScroll();     // sets up the observer to load the rest
 });
+
 
 
 
