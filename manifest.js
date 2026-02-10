@@ -13,6 +13,7 @@
   const TYPE_SPEED_MS = 18;
   const HOLD_MS = 2600;
   const FADE_MS = 900;
+
   const MAX_TEXT_WIDTH = 860;
   const SIDE_PADDING = 24;
   const TOP_PADDING = 8;
@@ -34,27 +35,71 @@
       return Math.min(w, MAX_TEXT_WIDTH + SIDE_PADDING * 2);
     }
 
-    function computeCanvasHeight() {
-      // Ajuste automatique approx selon longueur (safe)
-      // Si tu veux fixe: return 260;
-      return 200;
+    function applyTypography() {
+      // Typo responsive
+      const isMobile = p.width < 520;
+      p.textFont("system-ui, -apple-system, Segoe UI, Roboto, Arial");
+      p.textSize(isMobile ? 15 : 18);
+      p.textLeading(isMobile ? 22 : 28);
+      p.textAlign(p.LEFT, p.TOP);
+      p.textWrap(p.WORD);
+    }
+
+    function computeCanvasHeightFor(text) {
+      const textBoxW = Math.min(p.width - SIDE_PADDING * 2, MAX_TEXT_WIDTH);
+
+      const words = (text || "").trim().split(/\s+/).filter(Boolean);
+      if (words.length === 0) return Math.max(140, TOP_PADDING * 2 + 24);
+
+      let lines = 1;
+      let line = "";
+
+      for (const w of words) {
+        const test = line ? line + " " + w : w;
+        if (p.textWidth(test) <= textBoxW) {
+          line = test;
+        } else {
+          lines++;
+          line = w;
+        }
+      }
+
+      const leading = p.textLeading(); // ex 22/28
+      const pad = TOP_PADDING * 2 + 16; // marge bas “safe”
+      return Math.max(140, Math.ceil(lines * leading + pad));
+    }
+
+    function resizeToFitCurrentText() {
+      const shown = paragraphs[idx].slice(0, charCount);
+      const neededH = computeCanvasHeightFor(shown);
+      const w = computeCanvasWidth();
+
+      // 1) s'assurer que la largeur est bonne
+      if (p.width !== w) {
+        p.resizeCanvas(w, p.height);
+        applyTypography(); // la largeur a changé => mesures changent
+      }
+
+      // 2) ajuster la hauteur
+      if (p.height !== neededH) {
+        p.resizeCanvas(w, neededH);
+      }
     }
 
     p.setup = () => {
       const host = document.getElementById(mountId);
+
       const w = computeCanvasWidth();
-      const h = computeCanvasHeight();
+      // hauteur initiale "safe" ; on ajustera ensuite
+      const h = 180;
 
       const cnv = p.createCanvas(w, h);
-      cnv.parent(host);
+      if (host) cnv.parent(host);
 
+      // évite le flou sur certains mobiles (si tu veux ultra sharp, commente)
       p.pixelDensity(1);
 
-      p.textFont("system-ui, -apple-system, Segoe UI, Roboto, Arial");
-      p.textSize(18);
-      p.textLeading(28);
-      p.textAlign(p.LEFT, p.TOP);
-      p.textWrap(p.WORD);
+      applyTypography();
 
       phaseStart = p.millis();
       lastTypeAt = p.millis();
@@ -62,7 +107,6 @@
 
     p.draw = () => {
       p.clear(); // canvas transparent
-
       const now = p.millis();
 
       if (phase === "typing") {
@@ -102,12 +146,15 @@
 
       const shown = paragraphs[idx].slice(0, charCount);
 
+      // Ajuste dynamique du canvas (important sur mobile)
+      resizeToFitCurrentText();
+
       const textBoxW = Math.min(p.width - SIDE_PADDING * 2, MAX_TEXT_WIDTH);
       const x = (p.width - textBoxW) / 2;
       const y = TOP_PADDING;
 
       p.push();
-      // Couleur du texte : noir (si ton fond est sombre, mets 255)
+      // Couleur du texte : blanc (255) — ajuste si besoin
       p.fill(255, alpha);
       p.noStroke();
       p.text(shown, x, y, textBoxW, p.height - TOP_PADDING * 2);
@@ -115,15 +162,15 @@
     };
 
     p.windowResized = () => {
+      // sur resize/orientation change, recalcul complet
       const w = computeCanvasWidth();
-      const h = computeCanvasHeight();
-      p.resizeCanvas(w, h);
+
+      p.resizeCanvas(w, p.height);
+      applyTypography();
+
+      const shown = paragraphs[idx].slice(0, charCount);
+      const neededH = computeCanvasHeightFor(shown);
+      p.resizeCanvas(w, neededH);
     };
   });
 })();
-
-
-function windowResized() {
-  const w = Math.min(windowWidth, MAX_TEXT_WIDTH + SIDE_PADDING * 2);
-  resizeCanvas(w, height);
-}
