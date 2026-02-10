@@ -1,5 +1,4 @@
-// manifes.js (p5 instance mode) — n'interfère pas avec textSketch.js
-
+// manifes.js (p5 instance mode) — hauteur FIXE calculée sur le texte le plus long
 (() => {
   const paragraphs = [
     `Écoutez ! Les objets parlent. Ils ont traversé les mers, ils ont été pris, emportés, pillés. Ils ont quitté les mains qui les ont faits. Mais leur voix attend. Leur souffle attend. Leur esprit attend. Assez de silence ! Assez de possessions sans mémoire ! Nous appelons les peuples autochtones, les porteurs de chants et de récits, les gardiens des noms, des histoires, des mémoires.`,
@@ -17,6 +16,7 @@
   const MAX_TEXT_WIDTH = 860;
   const SIDE_PADDING = 24;
   const TOP_PADDING = 8;
+  const MIN_CANVAS_H = 160; // hauteur minimale "safe"
 
   const mountId = "manifeste";
 
@@ -28,6 +28,8 @@
     let lastTypeAt = 0;
     let alpha = 255;
 
+    let fixedH = 200; // calculée une fois (ou au resize)
+
     function computeCanvasWidth() {
       const host = document.getElementById(mountId);
       if (!host) return Math.min(window.innerWidth, MAX_TEXT_WIDTH + SIDE_PADDING * 2);
@@ -36,7 +38,6 @@
     }
 
     function applyTypography() {
-      // Typo responsive
       const isMobile = p.width < 520;
       p.textFont("system-ui, -apple-system, Segoe UI, Roboto, Arial");
       p.textSize(isMobile ? 15 : 18);
@@ -45,11 +46,10 @@
       p.textWrap(p.WORD);
     }
 
-    function computeCanvasHeightFor(text) {
-      const textBoxW = Math.min(p.width - SIDE_PADDING * 2, MAX_TEXT_WIDTH);
-
+    // Mesure "à la main" : combien de lignes pour un texte donné dans la largeur actuelle
+    function measureLines(text, textBoxW) {
       const words = (text || "").trim().split(/\s+/).filter(Boolean);
-      if (words.length === 0) return Math.max(140, TOP_PADDING * 2 + 24);
+      if (words.length === 0) return 1;
 
       let lines = 1;
       let line = "";
@@ -63,50 +63,53 @@
           line = w;
         }
       }
-
-      const leading = p.textLeading(); // ex 22/28
-      const pad = TOP_PADDING * 2 + 16; // marge bas “safe”
-      return Math.max(140, Math.ceil(lines * leading + pad));
+      return lines;
     }
 
-    function resizeToFitCurrentText() {
-      const shown = paragraphs[idx].slice(0, charCount);
-      const neededH = computeCanvasHeightFor(shown);
+    function computeFixedHeightForAllParagraphs() {
+      const textBoxW = Math.min(p.width - SIDE_PADDING * 2, MAX_TEXT_WIDTH);
+      let maxLines = 1;
+
+      for (const t of paragraphs) {
+        const lines = measureLines(t, textBoxW);
+        if (lines > maxLines) maxLines = lines;
+      }
+
+      const leading = p.textLeading();
+      const pad = TOP_PADDING * 2 + 16; // marge bas "safe"
+      return Math.max(MIN_CANVAS_H, Math.ceil(maxLines * leading + pad));
+    }
+
+    function recomputeCanvasSize() {
       const w = computeCanvasWidth();
+      p.resizeCanvas(w, p.height);
 
-      // 1) s'assurer que la largeur est bonne
-      if (p.width !== w) {
-        p.resizeCanvas(w, p.height);
-        applyTypography(); // la largeur a changé => mesures changent
-      }
+      applyTypography();
 
-      // 2) ajuster la hauteur
-      if (p.height !== neededH) {
-        p.resizeCanvas(w, neededH);
-      }
+      fixedH = computeFixedHeightForAllParagraphs();
+      p.resizeCanvas(w, fixedH);
     }
 
     p.setup = () => {
       const host = document.getElementById(mountId);
-
       const w = computeCanvasWidth();
-      // hauteur initiale "safe" ; on ajustera ensuite
-      const h = 180;
 
-      const cnv = p.createCanvas(w, h);
+      // hauteur temporaire; on calcule la vraie juste après
+      const cnv = p.createCanvas(w, 200);
       if (host) cnv.parent(host);
 
-      // évite le flou sur certains mobiles (si tu veux ultra sharp, commente)
       p.pixelDensity(1);
 
       applyTypography();
+      fixedH = computeFixedHeightForAllParagraphs();
+      p.resizeCanvas(w, fixedH);
 
       phaseStart = p.millis();
       lastTypeAt = p.millis();
     };
 
     p.draw = () => {
-      p.clear(); // canvas transparent
+      p.clear();
       const now = p.millis();
 
       if (phase === "typing") {
@@ -146,15 +149,11 @@
 
       const shown = paragraphs[idx].slice(0, charCount);
 
-      // Ajuste dynamique du canvas (important sur mobile)
-      resizeToFitCurrentText();
-
       const textBoxW = Math.min(p.width - SIDE_PADDING * 2, MAX_TEXT_WIDTH);
       const x = (p.width - textBoxW) / 2;
       const y = TOP_PADDING;
 
       p.push();
-      // Couleur du texte : blanc (255) — ajuste si besoin
       p.fill(255, alpha);
       p.noStroke();
       p.text(shown, x, y, textBoxW, p.height - TOP_PADDING * 2);
@@ -162,15 +161,8 @@
     };
 
     p.windowResized = () => {
-      // sur resize/orientation change, recalcul complet
-      const w = computeCanvasWidth();
-
-      p.resizeCanvas(w, p.height);
-      applyTypography();
-
-      const shown = paragraphs[idx].slice(0, charCount);
-      const neededH = computeCanvasHeightFor(shown);
-      p.resizeCanvas(w, neededH);
+      // uniquement lors d’un vrai changement de largeur (resize/orientation)
+      recomputeCanvasSize();
     };
   });
 })();
