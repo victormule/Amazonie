@@ -40,7 +40,27 @@ const IMAGES = [
 { src: "assets/image27.png", alt: "Artefact" },
 { src: "assets/image28.png", alt: "Artefact" },
 { src: "assets/image29.png", alt: "Artefact" },
-{ src: "assets/image30.png", alt: "Artefact" }
+{ src: "assets/image30.png", alt: "Artefact" },
+{ src: "assets/image31.png", alt: "Artefact" },
+{ src: "assets/image32.png", alt: "Artefact" },
+{ src: "assets/image33.png", alt: "Artefact" },
+{ src: "assets/image34.png", alt: "Artefact" },
+{ src: "assets/image35.png", alt: "Artefact" },
+{ src: "assets/image36.png", alt: "Artefact" },
+{ src: "assets/image37.png", alt: "Artefact" },
+{ src: "assets/image38.png", alt: "Artefact" },
+{ src: "assets/image39.png", alt: "Artefact" },
+{ src: "assets/image40.png", alt: "Artefact" },
+{ src: "assets/image41.png", alt: "Artefact" },
+{ src: "assets/image42.png", alt: "Artefact" },
+{ src: "assets/image43.png", alt: "Artefact" },
+{ src: "assets/image44.png", alt: "Artefact" },
+{ src: "assets/image45.png", alt: "Artefact" },
+{ src: "assets/image46.png", alt: "Artefact" },
+{ src: "assets/image47.png", alt: "Artefact" },
+{ src: "assets/image48.png", alt: "Artefact" },
+{ src: "assets/image49.png", alt: "Artefact" },
+{ src: "assets/image50.png", alt: "Artefact" }
    
 ];
 
@@ -933,6 +953,7 @@ document.addEventListener("DOMContentLoaded", () => {
   loadArtefacts();          // loads the first batch
   initInfiniteScroll();     // sets up the observer to load the rest
 });
+
 
 
 
