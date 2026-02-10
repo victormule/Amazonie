@@ -1,12 +1,12 @@
 // manifes.js (p5 instance mode) — hauteur FIXE calculée sur le texte le plus long
 (() => {
-  const paragraphs = [
-    `Écoutez ! Les objets parlent. Ils ont traversé les mers, ils ont été pris, emportés, pillés. Ils ont quitté les mains qui les ont faits. Mais leur voix attend. Leur souffle attend. Leur esprit attend. Assez de silence ! Assez de possessions sans mémoire ! Nous appelons les peuples autochtones, les porteurs de chants et de récits, les gardiens des noms, des histoires, des mémoires.`,
-    `Racontez ! Chantez ! Écrivez ! Souvenez-vous ! Insufflez à ces objets leur vie ! Faites-les parler à nouveau ! Chaque mot est un souffle, chaque chant est un vent qui traverse les vitrines, chaque souvenir est un pont jeté entre hier et aujourd’hui. Écoutez ! Ils appartiennent à ceux qui les ont créés. Ils appartiennent aux voix qui ne veulent pas se taire.`,
-    `Partout où ils sont – musée, collection, cabinet – leurs voix peuvent résonner. Rejoignez-nous ! Chantez, criez, racontez, écrivez ! Rendez à chaque objet son âme, sa mémoire, sa dignité. Faites de ces lieux des espaces de rencontre, de dialogue, d’écho. Chaque voix compte. Chaque souffle compte. Chaque objet compte. Le silence est fini. Le manifeste est vivant. Les objets parlent. Écoutez-les.`,
-    `Les objets exposés dans les musées ne sont pas seulement des choses à regarder. Ils ont une histoire. Beaucoup ont été arrachés à leur lieu d’origine, transportés loin de ceux qui les avaient créés, souvent sans leur consentement. Les objets ne sont pas silencieux : ils portent en eux la mémoire des peuples, des gestes et des savoirs qui leur ont donné naissance.`,
-    `Aujourd’hui, on les contemple comme des vestiges, les témoins de votre histoire vivante, enfermés dans des cages de verre, au milieu de nos institutions faites de marbre et d’acier.`
-  ];
+const paragraphs = [
+  `Escutem! Os objetos falam. Atravessaram os mares, foram levados, tomados, saqueados. Saíram das mãos que os criaram. Mas suas vozes esperam. Sua respiração espera. Seu espírito espera. Chega de silêncio! Chega de posses sem memória! Chamamos os povos indígenas, os guardiões de cantos e narrativas, os guardiões dos nomes, das histórias, das memórias.`,
+  `Contem! Cantem! Escrevam! Lembrem-se! Devolvam a vida a esses objetos! Façam-nos falar de novo! Cada palavra é um sopro, cada canto é um vento que atravessa as vitrines, cada lembrança é uma ponte entre ontem e hoje. Escutem! Eles pertencem a quem os criou. Pertencem às vozes que se recusam a se calar.`,
+  `Onde quer que estejam — museu, coleção, gabinete — suas vozes podem ressoar. Juntem-se a nós! Cantem, gritem, contem, escrevam! Devolvam a cada objeto sua alma, sua memória, sua dignidade. Transformem esses lugares em espaços de encontro, de diálogo, de eco. Cada voz importa. Cada sopro importa. Cada objeto importa. O silêncio acabou. O manifesto está vivo. Os objetos falam. Escutem-nos.`,
+  `Os objetos expostos nos museus não são apenas coisas para olhar. Eles têm uma história. Muitos foram arrancados de seus lugares de origem, levados para longe de quem os criou, muitas vezes sem consentimento. Os objetos não são silenciosos: carregam em si a memória dos povos, dos gestos e dos saberes que lhes deram origem.`,
+  `Hoje, nós os observamos como vestígios, testemunhas de uma história ainda viva, presos em caixas de vidro, no meio de instituições de mármore e aço.`
+];
 
   // Réglages
   const TYPE_SPEED_MS = 18;
