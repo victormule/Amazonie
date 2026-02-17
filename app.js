@@ -11,6 +11,14 @@ const RECORDING_TIMESLICE = 1000;            // ms
 
 // Artefatos da galeria
 const IMAGES = [
+{ src: "assets/imageA1.png",  alt: "Atelier" },
+{ src: "assets/imageA2.png",  alt: "Atelier" },
+{ src: "assets/imageA3.png",  alt: "Atelier" },
+{ src: "assets/imageA4.png",  alt: "Atelier" },
+{ src: "assets/imageA5.png",  alt: "Atelier" },
+{ src: "assets/imageA6.png",  alt: "Atelier" },
+{ src: "assets/imageA7.png",  alt: "Atelier" },
+{ src: "assets/imageA8.png",  alt: "Atelier" },
 { src: "assets/image1.png",  alt: "Peitoral de penas e contas" },
 { src: "assets/image2.png",  alt: "Cinto trançado com penas" },
 { src: "assets/image3.png",  alt: "Coroa cerimonial" },
@@ -953,6 +961,7 @@ document.addEventListener("DOMContentLoaded", () => {
   loadArtefacts();          // loads the first batch
   initInfiniteScroll();     // sets up the observer to load the rest
 });
+
 
 
 
